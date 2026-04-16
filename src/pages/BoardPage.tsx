@@ -18,7 +18,7 @@ import type {
 } from '../types/billing'
 
 const STORAGE_KEY = 'tabletab-board-state'
-const CHECKOUT_TIMEOUT_MS = 3 * 60 * 1000
+const CHECKOUT_TIMEOUT_MS = 5 * 60 * 1000
 const QRCode = (
   QRCodeDefault as unknown as {
     QRCode?: typeof QRCodeDefault
@@ -738,7 +738,7 @@ function BoardPage() {
               every 3 seconds for incoming USDT to the merchant wallet.
             </p>
             <p className="text-sm text-zinc-600">
-              This checkout times out after 3 minutes.
+              This checkout times out after 5 minutes.
             </p>
             <input
               className="rounded-lg border border-zinc-300 px-3 py-3 text-sm"

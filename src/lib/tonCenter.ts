@@ -5,16 +5,20 @@ import {
 
 type TonCenterJettonTransfer = {
   amount?: string
+  jetton_master?: string
+  transaction_hash?: string
+  transaction_now?: number | string
   jetton?: {
     address?: string
   }
   transaction?: {
     hash?: string
-    time?: number
+    time?: number | string
   }
 }
 
 type TonCenterJettonTransfersResponse = {
+  jetton_transfers?: TonCenterJettonTransfer[]
   transfers?: TonCenterJettonTransfer[]
 }
 
@@ -33,6 +37,11 @@ type FindIncomingUsdtPaymentParams = {
 
 function sameAddress(left?: string, right?: string) {
   return left?.toLowerCase() === right?.toLowerCase()
+}
+
+function toTimestamp(value?: number | string) {
+  const timestamp = Number(value ?? 0)
+  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 export async function findIncomingUsdtPayment({
@@ -65,28 +74,36 @@ export async function findIncomingUsdtPayment({
   }
 
   const data = (await response.json()) as TonCenterJettonTransfersResponse
-  const transfers = data.transfers ?? []
+  const transfers = data.jetton_transfers ?? data.transfers ?? []
 
   const matchedTransfer = transfers.find((transfer) => {
-    const hash = transfer.transaction?.hash
-    const time = transfer.transaction?.time ?? 0
+    const hash = transfer.transaction_hash ?? transfer.transaction?.hash
+    const time = toTimestamp(
+      transfer.transaction_now ?? transfer.transaction?.time,
+    )
+    const jettonMaster = transfer.jetton_master ?? transfer.jetton?.address
 
     return (
       Boolean(hash) &&
       !usedTxHashes.includes(hash ?? '') &&
-      sameAddress(transfer.jetton?.address, TON_USDT_JETTON_MASTER) &&
+      sameAddress(jettonMaster, TON_USDT_JETTON_MASTER) &&
       transfer.amount === expectedUsdtRawAmount &&
       time >= createdAtSeconds
     )
   })
 
-  if (!matchedTransfer?.transaction?.hash || !matchedTransfer.transaction.time) {
+  const hash = matchedTransfer?.transaction_hash ?? matchedTransfer?.transaction?.hash
+  const time = toTimestamp(
+    matchedTransfer?.transaction_now ?? matchedTransfer?.transaction?.time,
+  )
+
+  if (!matchedTransfer || !hash || !time) {
     return null
   }
 
   return {
     amount: matchedTransfer.amount ?? expectedUsdtRawAmount,
-    hash: matchedTransfer.transaction.hash,
-    time: matchedTransfer.transaction.time,
+    hash,
+    time,
   }
 }
