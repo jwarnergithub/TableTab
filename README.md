@@ -75,16 +75,15 @@ npm run lint
 
 ## API Key Note
 
-The tablet can poll TON Center v3 without a key. If rate limits become a
-problem during testing, you can set:
+For live Vercel testing with a TonConsole key, set:
 
 ```bash
-VITE_TONCENTER_API_KEY=your_test_key
+VITE_TONAPI_API_KEY=your_tonconsole_key
 ```
 
 Any `VITE_` value is public in the browser bundle, so do not use a valuable
 secret key here.
 
-For Vercel testing, add `VITE_TONCENTER_API_KEY` in the project Environment
-Variables settings, then redeploy the project. The browser sends it to TON
-Center as `X-API-Key`.
+For Vercel testing, add `VITE_TONAPI_API_KEY` in the project Environment
+Variables settings, then redeploy the project. The browser sends it to TonAPI
+as `Authorization: Bearer ...`.

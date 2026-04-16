@@ -3,4 +3,5 @@ export const OMNISTON_API_URL = 'wss://omni-ws.ston.fi'
 export const DEFAULT_CURRENCY = 'USD'
 export const TON_USDT_JETTON_MASTER =
   'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'
+export const TONAPI_API_URL = 'https://tonapi.io/v2'
 export const TONCENTER_V3_API_URL = 'https://toncenter.com/api/v3'

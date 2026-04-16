@@ -1,4 +1,5 @@
 import {
+  TONAPI_API_URL,
   TON_USDT_JETTON_MASTER,
   TONCENTER_V3_API_URL,
 } from './constants'
@@ -20,6 +21,36 @@ type TonCenterJettonTransfer = {
 type TonCenterJettonTransfersResponse = {
   jetton_transfers?: TonCenterJettonTransfer[]
   transfers?: TonCenterJettonTransfer[]
+}
+
+type TonApiAccountAddress = {
+  address?: string
+}
+
+type TonApiJettonTransfer = {
+  amount?: string
+  recipient?: TonApiAccountAddress
+  jetton?: {
+    address?: string
+  }
+}
+
+type TonApiAction = {
+  type?: string
+  status?: string
+  JettonTransfer?: TonApiJettonTransfer
+  jetton_transfer?: TonApiJettonTransfer
+  jettonTransfer?: TonApiJettonTransfer
+}
+
+type TonApiAccountEvent = {
+  event_id?: string
+  timestamp?: number | string
+  actions?: TonApiAction[]
+}
+
+type TonApiAccountEventsResponse = {
+  events?: TonApiAccountEvent[]
 }
 
 export type MatchedUsdtTransfer = {
@@ -65,7 +96,98 @@ function isExpectedUsdtAmount(receivedAmount?: string, expectedAmount?: string) 
   }
 }
 
+function tonApiJettonTransfer(action: TonApiAction) {
+  return (
+    action.JettonTransfer ?? action.jetton_transfer ?? action.jettonTransfer
+  )
+}
+
 export async function findIncomingUsdtPayment({
+  merchantWallet,
+  expectedUsdtRawAmount,
+  createdAt,
+  usedTxHashes,
+}: FindIncomingUsdtPaymentParams): Promise<MatchedUsdtTransfer | null> {
+  const tonApiKey = (
+    import.meta.env.VITE_TONAPI_API_KEY ??
+    import.meta.env.VITE_TONCENTER_API_KEY ??
+    ''
+  ).trim()
+
+  if (tonApiKey) {
+    return findIncomingUsdtPaymentWithTonApi({
+      merchantWallet,
+      expectedUsdtRawAmount,
+      createdAt,
+      usedTxHashes,
+      apiKey: tonApiKey,
+    })
+  }
+
+  return findIncomingUsdtPaymentWithTonCenter({
+    merchantWallet,
+    expectedUsdtRawAmount,
+    createdAt,
+    usedTxHashes,
+  })
+}
+
+async function findIncomingUsdtPaymentWithTonApi({
+  merchantWallet,
+  expectedUsdtRawAmount,
+  createdAt,
+  usedTxHashes,
+  apiKey,
+}: FindIncomingUsdtPaymentParams & {
+  apiKey: string
+}): Promise<MatchedUsdtTransfer | null> {
+  const createdAtSeconds = Math.floor(new Date(createdAt).getTime() / 1000)
+  const url = new URL(
+    `${TONAPI_API_URL}/accounts/${merchantWallet}/jettons/${TON_USDT_JETTON_MASTER}/history`,
+  )
+
+  url.searchParams.set('limit', '20')
+
+  const headers = new Headers()
+  headers.set('Authorization', `Bearer ${apiKey}`)
+
+  const response = await fetch(url, { headers })
+
+  if (!response.ok) {
+    throw new Error(`TonAPI polling failed with ${response.status}.`)
+  }
+
+  const data = (await response.json()) as TonApiAccountEventsResponse
+  const events = data.events ?? []
+
+  for (const event of events) {
+    const hash = event.event_id
+    const time = toTimestamp(event.timestamp)
+
+    if (!hash || usedTxHashes.includes(hash) || time < createdAtSeconds) {
+      continue
+    }
+
+    const matchedTransfer = event.actions
+      ?.filter((action) => !action.status || action.status === 'ok')
+      .map(tonApiJettonTransfer)
+      .find((transfer) =>
+        isExpectedUsdtAmount(transfer?.amount, expectedUsdtRawAmount),
+      )
+
+    if (matchedTransfer?.amount) {
+      return {
+        amount: matchedTransfer.amount,
+        hash,
+        time,
+      }
+    }
+  }
+
+  return null
+}
+
+async function findIncomingUsdtPaymentWithTonCenter({
   merchantWallet,
   expectedUsdtRawAmount,
   createdAt,
