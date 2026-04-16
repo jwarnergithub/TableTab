@@ -21,9 +21,23 @@ import { Cell } from '@ton/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { formatUsdt } from '../lib/amounts'
+import { TON_USDT_JETTON_MASTER } from '../lib/constants'
 import { decodeCheckoutPayload } from '../lib/checkoutPayload'
 
 const TON_BLOCKCHAIN = 607
+const TON_ASSET_ADDRESS = 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c'
+const FALLBACK_TON_ASSET: PaymentAsset = {
+  address: TON_ASSET_ADDRESS,
+  symbol: 'TON',
+  displayName: 'Toncoin',
+  decimals: 9,
+}
+const FALLBACK_USDT_ASSET: PaymentAsset = {
+  address: TON_USDT_JETTON_MASTER,
+  symbol: 'USDT',
+  displayName: 'Tether USD',
+  decimals: 6,
+}
 const stonApiClient = new StonApiClient()
 
 type PaymentAsset = {
@@ -146,6 +160,7 @@ function PayPage() {
   const selectedAsset = assets.find(
     (asset) => asset.address === selectedAssetAddress,
   )
+  const canPay = Boolean(wallet && selectedAsset && usdtAsset && !isPaying)
 
   useEffect(() => {
     let isActive = true
@@ -181,7 +196,7 @@ function PayPage() {
           return
         }
 
-        const nextAssets = availableAssets
+        const apiAssets = availableAssets
           .filter((asset) => asset.kind !== 'NotAnAsset')
           .map((asset) => ({
             address: asset.contractAddress,
@@ -190,22 +205,25 @@ function PayPage() {
             decimals: asset.meta?.decimals ?? 9,
             balance: asset.balance,
           }))
+        const nextAssets =
+          apiAssets.length > 0
+            ? apiAssets
+            : [FALLBACK_TON_ASSET, FALLBACK_USDT_ASSET]
 
         const nextUsdt = usdtMatches.find(
           (asset) => asset.meta?.symbol?.toUpperCase() === 'USDT',
         )
+        const nextUsdtAsset = nextUsdt
+          ? {
+              address: nextUsdt.contractAddress,
+              symbol: nextUsdt.meta?.symbol ?? 'USDT',
+              displayName: nextUsdt.meta?.displayName ?? 'Tether USD',
+              decimals: nextUsdt.meta?.decimals ?? 6,
+            }
+          : FALLBACK_USDT_ASSET
 
         setAssets(nextAssets)
-        setUsdtAsset(
-          nextUsdt
-            ? {
-                address: nextUsdt.contractAddress,
-                symbol: nextUsdt.meta?.symbol ?? 'USDT',
-                displayName: nextUsdt.meta?.displayName ?? 'Tether USD',
-                decimals: nextUsdt.meta?.decimals ?? 6,
-              }
-            : null,
-        )
+        setUsdtAsset(nextUsdtAsset)
         setSelectedAssetAddress((currentAddress) =>
           currentAddress || nextAssets[0]?.address || '',
         )
@@ -218,6 +236,11 @@ function PayPage() {
           assetError instanceof Error
             ? assetError.message
             : 'Could not load STON.fi token list.',
+        )
+        setAssets([FALLBACK_TON_ASSET, FALLBACK_USDT_ASSET])
+        setUsdtAsset(FALLBACK_USDT_ASSET)
+        setSelectedAssetAddress((currentAddress) =>
+          currentAddress || FALLBACK_TON_ASSET.address,
         )
       }
     }
@@ -409,6 +432,21 @@ function PayPage() {
         </select>
       </label>
 
+      <div className="mt-4 grid gap-2 rounded-lg bg-stone-50 p-4 text-sm">
+        <p className="font-medium">Checkout readiness</p>
+        <p>{wallet ? 'Wallet connected' : 'Connect a wallet first'}</p>
+        <p>
+          {selectedAsset
+            ? `Input token selected: ${selectedAsset.symbol}`
+            : 'Waiting for STON.fi token list'}
+        </p>
+        <p>
+          {usdtAsset
+            ? `USDT output ready: ${usdtAsset.symbol}`
+            : 'Waiting for USDT output token'}
+        </p>
+      </div>
+
       {quote && selectedAsset ? (
         <div className="mt-5 grid gap-2 rounded-lg bg-stone-50 p-4 text-sm">
           <div className="flex justify-between gap-4">
@@ -427,7 +465,7 @@ function PayPage() {
 
       <button
         className="mt-5 w-full rounded-lg bg-zinc-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
-        disabled={!wallet || !selectedAsset || !usdtAsset || isPaying}
+        disabled={!canPay}
         onClick={buildAndSendPayment}
       >
         {isPaying ? 'Preparing payment...' : 'Pay with TON wallet'}
