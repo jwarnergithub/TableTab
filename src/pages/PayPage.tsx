@@ -363,8 +363,8 @@ function PayPage() {
       </h1>
       <p className="mt-2 font-medium text-zinc-700">{checkout.orderName}</p>
       <p className="mt-3 text-zinc-600">
-        Connect a TON wallet and pay with any supported TON token. The merchant
-        receives the exact total in USDT.
+        Connect Tonkeeper, choose the token you want to spend, then approve the
+        swap. The merchant receives the exact total in USDT.
       </p>
 
       <div className="mt-6 rounded-lg border border-zinc-200 bg-stone-50 p-4">

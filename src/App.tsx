@@ -1,4 +1,3 @@
-import { TonConnectButton } from '@tonconnect/ui-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
 import { APP_NAME } from './lib/constants'
@@ -56,7 +55,9 @@ function App() {
           <Link to="/" className="text-xl font-semibold tracking-normal">
             {APP_NAME}
           </Link>
-          <TonConnectButton />
+          <p className="text-sm font-medium text-zinc-500">
+            Tablet board and phone checkout
+          </p>
         </div>
       </header>
 

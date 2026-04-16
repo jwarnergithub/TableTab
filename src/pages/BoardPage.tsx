@@ -692,10 +692,13 @@ function BoardPage() {
           <li className="rounded-lg bg-stone-100 p-4">1. Select your items</li>
           <li className="rounded-lg bg-stone-100 p-4">2. Tap Pay</li>
           <li className="rounded-lg bg-stone-100 p-4">
-            3. Scan QR with phone camera
+            3. Scan QR with your phone camera
           </li>
           <li className="rounded-lg bg-stone-100 p-4">
-            4. Connect Tonkeeper and pay
+            4. Connect Tonkeeper on your phone
+          </li>
+          <li className="rounded-lg bg-stone-100 p-4">
+            5. Choose a token and approve
           </li>
         </ol>
 
@@ -711,8 +714,8 @@ function BoardPage() {
               />
             </div>
             <p className="rounded-lg bg-sky-50 p-3 text-center text-base font-semibold text-sky-900 ring-1 ring-sky-100">
-              Use the phone Camera app to open this web checkout. Do not scan
-              this QR inside Tonkeeper.
+              Use the phone Camera app to open the checkout page, then connect
+              Tonkeeper there.
             </p>
             <p className="text-center text-3xl font-black">
               Checkout total: {formatUsdt(activeCheckout.totalCents)}
