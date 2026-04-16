@@ -1,73 +1,84 @@
-# React + TypeScript + Vite
+# TableTab
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+TableTab is a hackathon MVP for splitting a restaurant table bill on TON.
 
-Currently, two official plugins are available:
+The app turns a single tablet into the restaurant board. A merchant enters a
+table name, merchant wallet, and custom USDT-priced items, then locks the
+order. After locking, the same tablet becomes the customer board: guests select
+their unpaid items one at a time, add an optional tip, tap Pay, and scan a QR
+code with their phone.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The phone checkout opens `/pay?checkout=...`, connects a TON wallet, and uses
+the STON.fi ecosystem so the guest can pay with a supported TON token while the
+merchant receives the exact total in USDT. The tablet remains the source of
+truth for item status and polls for incoming USDT payments to mark pending items
+as paid.
 
-## React Compiler
+## Demo Flow
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Merchant adds custom items and USDT prices.
+2. Merchant enters the receiving wallet and locks the order.
+3. Customer selects unpaid items on the same tablet.
+4. Customer taps Pay and scans the QR code with Tonkeeper.
+5. Phone checkout builds a STON.fi Omniston payment.
+6. Tablet detects the incoming USDT payment and marks items paid.
+7. When all items are paid, the board shows Paid in Full.
 
-## Expanding the ESLint configuration
+## Constraints
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- No database.
+- No backend.
+- No smart contracts.
+- One active checkout at a time.
+- The tablet board is the source of truth for bill state.
+- The phone checkout does not edit the tablet board directly.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- TonConnect UI
+- STON.fi API
+- STON.fi Omniston SDK
+- TON Center v3 polling for demo payment detection
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Development
+
+Install dependencies:
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Run locally:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+Build:
+
+```bash
+npm run build
+```
+
+Lint:
+
+```bash
+npm run lint
+```
+
+## API Key Note
+
+The tablet can poll TON Center v3 without a key. If rate limits become a
+problem during testing, you can set:
+
+```bash
+VITE_TONCENTER_API_KEY=your_test_key
+```
+
+Any `VITE_` value is public in the browser bundle, so do not use a valuable
+secret key here.
