@@ -19,8 +19,9 @@ as paid.
 1. Merchant adds custom items and USDT prices.
 2. Merchant enters the receiving wallet and locks the order.
 3. Customer selects unpaid items on the same tablet.
-4. Customer taps Pay and scans the QR code with Tonkeeper.
-5. Phone checkout builds a STON.fi Omniston payment.
+4. Customer taps Pay and scans the QR code with the phone Camera app.
+5. Phone browser opens the checkout, connects Tonkeeper, and builds a STON.fi
+   Omniston payment.
 6. Tablet detects the incoming USDT payment and marks items paid.
 7. When all items are paid, the board shows Paid in Full.
 
