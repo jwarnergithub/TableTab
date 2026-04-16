@@ -466,19 +466,19 @@ function BoardPage() {
             className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={addItem}
           >
-            <label className="grid gap-2 text-base font-semibold text-zinc-700">
+            <label className="grid min-w-0 gap-2 text-base font-semibold text-zinc-700">
               Item name
               <input
-                className="rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+                className="w-full min-w-0 rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
                 value={itemName}
                 onChange={(event) => setItemName(event.target.value)}
                 placeholder="Burger"
               />
             </label>
-            <label className="grid gap-2 text-base font-semibold text-zinc-700">
+            <label className="grid min-w-0 gap-2 text-base font-semibold text-zinc-700">
               Price in USDT
               <input
-                className="rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+                className="w-full min-w-0 rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
                 inputMode="decimal"
                 value={itemPrice}
                 onChange={(event) => setItemPrice(event.target.value)}
