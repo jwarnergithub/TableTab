@@ -1,39 +1,69 @@
 # TableTab
 
-TableTab is a hackathon MVP for splitting a restaurant table bill on TON.
+<p align="center">
+  <img src="public/icon-192.png" alt="TableTab icon" width="192" height="192" />
+</p>
 
-The app turns a single tablet into the restaurant board. A merchant enters a
-table name, merchant wallet, and custom USDT-priced items, then locks the
-order. After locking, the same tablet becomes the customer board: guests select
-their unpaid items one at a time, add an optional tip, tap Pay, and scan a QR
-code with their phone.
+TableTab is a 4-day hackathon MVP for splitting and paying a restaurant table
+bill on TON. It uses a single tablet as the restaurant board and a phone-only
+checkout page for wallet payment.
 
-The phone checkout opens `/pay?checkout=...`, connects a TON wallet, and uses
-the STON.fi ecosystem so the guest can pay with a supported TON token. The
-checkout uses a hardcoded 1% Omniston slippage limit, and the tablet accepts a
-merchant-side difference of up to 0.01 USDT to avoid rounding dust blocking the
-demo. The tablet remains the source of truth for item status and polls for
-incoming USDT payments to mark pending items as paid.
+The app is themed for the STON.fi ecosystem and uses STON.fi Omniston so a guest
+can pay with a supported TON token while the merchant receives USDT.
+
+## What It Does
+
+The merchant opens the tablet board at `/`, enters a table or order name,
+merchant receiving wallet, and custom USDT-priced items, then locks the order.
+After locking, the same tablet becomes the customer-facing board.
+
+Customers use the tablet one at a time. A customer selects one or more unpaid
+items, adds an optional tip, taps Pay, and scans the generated QR code with the
+phone Camera app. The QR opens `/pay?checkout=...` on the phone.
+
+The phone checkout connects Tonkeeper through TonConnect, lets the payer choose
+an input token, requests a STON.fi Omniston quote, builds the swap/payment
+transfer, and sends it through the connected wallet. The tablet does not get
+edited by the phone page. Instead, the tablet polls the merchant wallet and marks
+pending items paid when the USDT receipt is detected.
+
+When all items are paid, the tablet shows a large Paid in Full banner.
 
 ## Demo Flow
 
 1. Merchant adds custom items and USDT prices.
 2. Merchant enters the receiving wallet and locks the order.
 3. Customer selects unpaid items on the same tablet.
-4. Customer taps Pay and scans the QR code with the phone Camera app.
-5. Phone browser opens the checkout, connects Tonkeeper, and builds a STON.fi
-   Omniston payment.
-6. Tablet detects the incoming USDT payment and marks items paid.
-7. When all items are paid, the board shows Paid in Full.
+4. Customer adds an optional tip.
+5. Customer taps Pay.
+6. Tablet shows a QR code and copyable checkout link.
+7. Customer scans the QR with the phone Camera app.
+8. Phone checkout opens, connects Tonkeeper, and loads STON.fi token options.
+9. Customer selects the token to spend and approves the Omniston transaction.
+10. Tablet polls the merchant wallet, detects incoming USDT, and marks items paid.
+11. When all items are paid, the board shows Paid in Full.
+
+## Payment Rules
+
+- Bill totals are denominated in USDT.
+- Omniston is requested in exact-output mode using the checkout USDT amount.
+- Customer swap slippage is hardcoded to 1%.
+- The merchant-side detection accepts up to 0.01 USDT less than expected to avoid
+  tiny rounding or swap-dust mismatches during the demo.
+- Only one checkout can be active at a time.
+- Selected items become pending while a checkout is active.
+- Pending items return to unpaid if the checkout is canceled or times out.
+- The phone checkout does not directly edit tablet state.
 
 ## Constraints
 
 - No database.
 - No backend.
 - No smart contracts.
+- No auth.
 - One active checkout at a time.
 - The tablet board is the source of truth for bill state.
-- The phone checkout does not edit the tablet board directly.
+- Board state is stored in localStorage.
 
 ## Tech Stack
 
@@ -45,7 +75,33 @@ incoming USDT payments to mark pending items as paid.
 - TonConnect UI
 - STON.fi API
 - STON.fi Omniston SDK
-- TON Center v3 polling for demo payment detection
+- TonAPI polling with a TonConsole API key
+- Vercel deployment
+
+## Routes
+
+- `/` is the tablet-facing board.
+- `/pay` is the phone-only wallet checkout.
+
+## Environment Variables
+
+For live Vercel testing with a TonConsole key, set:
+
+```bash
+VITE_TONAPI_API_KEY=your_tonconsole_key
+```
+
+The browser sends this to TonAPI as:
+
+```text
+Authorization: Bearer ...
+```
+
+Any `VITE_` value is public in the browser bundle, so use a temporary key you
+are comfortable deleting after the hackathon.
+
+After adding or changing the variable in Vercel, redeploy the project. Vite
+reads `VITE_` variables at build time.
 
 ## Development
 
@@ -73,17 +129,14 @@ Lint:
 npm run lint
 ```
 
-## API Key Note
+## Demo Safety Controls
 
-For live Vercel testing with a TonConsole key, set:
+- Reset Demo clears the local board state.
+- Cancel pending payment returns pending items to unpaid.
+- Simulate Payment exists only in development mode.
 
-```bash
-VITE_TONAPI_API_KEY=your_tonconsole_key
-```
+## Current Notes
 
-Any `VITE_` value is public in the browser bundle, so do not use a valuable
-secret key here.
-
-For Vercel testing, add `VITE_TONAPI_API_KEY` in the project Environment
-Variables settings, then redeploy the project. The browser sends it to TonAPI
-as `Authorization: Bearer ...`.
+The build currently emits bundle-size and polyfill `eval` warnings from the TON
+wallet/polyfill dependency stack. The app builds successfully, and these warnings
+are not blocking the hackathon demo.
