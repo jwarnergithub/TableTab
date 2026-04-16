@@ -54,12 +54,11 @@ function App() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link to="/" className="ston-brand text-3xl font-black tracking-normal">
             <span>{APP_NAME}</span>
-            <span className="ston-brand-mark" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-            </span>
+            <img
+              src="/icon-192.png"
+              alt=""
+              className="h-10 w-10 rounded-lg object-cover shadow-[0_0_18px_rgba(57,245,236,0.42)]"
+            />
           </Link>
         </div>
       </header>
