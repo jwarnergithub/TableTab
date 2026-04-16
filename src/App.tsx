@@ -61,9 +61,6 @@ function App() {
               <span />
             </span>
           </Link>
-          <p className="text-sm font-medium text-cyan-50/80">
-            Tablet board and phone checkout
-          </p>
         </div>
       </header>
 
