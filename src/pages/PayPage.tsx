@@ -75,6 +75,15 @@ function tradeStatusLabel(status: TradeStatus | null) {
   return statusKey ? `Trade status: ${statusKey}` : 'Trade status received.'
 }
 
+function isFilledTrade(status: TradeStatus) {
+  const result = status.status?.tradeSettled?.result
+
+  return (
+    result === 'TRADE_RESULT_FULLY_FILLED' ||
+    result === 'TRADE_RESULT_PARTIALLY_FILLED'
+  )
+}
+
 function firstQuoteFromOmniston(
   events: Observable<QuoteResponseEvent>,
 ) {
@@ -146,6 +155,7 @@ function PayPage() {
   const walletAssetAddress = useTonAddress()
   const [tonConnectUI] = useTonConnectUI()
   const tradeSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
+  const didAutoDisconnectRef = useRef(false)
 
   const [assets, setAssets] = useState<PaymentAsset[]>([])
   const [usdtAsset, setUsdtAsset] = useState<PaymentAsset | null>(null)
@@ -315,6 +325,21 @@ function PayPage() {
           next: (nextStatus) => {
             setTradeStatus(nextStatus)
             setStatus(tradeStatusLabel(nextStatus))
+
+            if (isFilledTrade(nextStatus) && !didAutoDisconnectRef.current) {
+              didAutoDisconnectRef.current = true
+              tradeSubscriptionRef.current?.unsubscribe()
+              setStatus('Payment complete. Disconnecting wallet.')
+
+              void tonConnectUI
+                .disconnect()
+                .then(() => {
+                  setStatus('Payment complete. Wallet disconnected.')
+                })
+                .catch(() => {
+                  setStatus('Payment complete. You can disconnect manually.')
+                })
+            }
           },
           error: (trackError: unknown) => {
             setError(
