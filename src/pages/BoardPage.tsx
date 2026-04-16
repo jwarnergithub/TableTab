@@ -18,7 +18,8 @@ import type {
 } from '../types/billing'
 
 const STORAGE_KEY = 'tabletab-board-state'
-const CHECKOUT_TIMEOUT_MS = 5 * 60 * 1000
+const CHECKOUT_TIMEOUT_MS = 2 * 60 * 1000
+const PAYMENT_POLL_INTERVAL_MS = 1_000
 const QRCode = (
   QRCodeDefault as unknown as {
     QRCode?: typeof QRCodeDefault
@@ -208,7 +209,7 @@ function BoardPage() {
                 ...currentState.usedPaymentTxHashes,
                 payment.hash,
               ],
-              lastPaymentMessage: `Payment detected. Transaction ${payment.hash}`,
+              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw USDT. Transaction ${payment.hash}`,
             }
           })
         }
@@ -228,7 +229,10 @@ function BoardPage() {
     }
 
     pollForPayment()
-    const intervalId = window.setInterval(pollForPayment, 3_000)
+    const intervalId = window.setInterval(
+      pollForPayment,
+      PAYMENT_POLL_INTERVAL_MS,
+    )
 
     return () => {
       isActive = false
@@ -738,10 +742,10 @@ function BoardPage() {
             </div>
             <p className="text-sm text-zinc-600">
               Selected items are pending while the tablet polls TON Center v3
-              every 3 seconds for incoming USDT to the merchant wallet.
+              every second for incoming USDT to the merchant wallet.
             </p>
             <p className="text-sm text-zinc-600">
-              This checkout times out after 5 minutes.
+              This checkout times out after 2 minutes.
             </p>
             <input
               className="rounded-lg border border-zinc-300 px-3 py-3 text-sm"

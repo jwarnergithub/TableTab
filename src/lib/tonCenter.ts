@@ -35,6 +35,10 @@ type FindIncomingUsdtPaymentParams = {
   usedTxHashes: string[]
 }
 
+const MIN_USDT_DUST_TOLERANCE_RAW = 1_000n
+const MAX_USDT_DUST_TOLERANCE_RAW = 10_000n
+const USDT_DUST_TOLERANCE_BPS = 15n
+
 function sameAddress(left?: string, right?: string) {
   return left?.toLowerCase() === right?.toLowerCase()
 }
@@ -42,6 +46,45 @@ function sameAddress(left?: string, right?: string) {
 function toTimestamp(value?: number | string) {
   const timestamp = Number(value ?? 0)
   return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function clampBigInt(value: bigint, min: bigint, max: bigint) {
+  if (value < min) {
+    return min
+  }
+
+  if (value > max) {
+    return max
+  }
+
+  return value
+}
+
+function isExpectedUsdtAmount(receivedAmount?: string, expectedAmount?: string) {
+  if (!receivedAmount || !expectedAmount) {
+    return false
+  }
+
+  try {
+    const received = BigInt(receivedAmount)
+    const expected = BigInt(expectedAmount)
+
+    if (received >= expected) {
+      return true
+    }
+
+    const proportionalTolerance =
+      (expected * USDT_DUST_TOLERANCE_BPS) / 10_000n
+    const tolerance = clampBigInt(
+      proportionalTolerance,
+      MIN_USDT_DUST_TOLERANCE_RAW,
+      MAX_USDT_DUST_TOLERANCE_RAW,
+    )
+
+    return expected - received <= tolerance
+  } catch {
+    return false
+  }
 }
 
 export async function findIncomingUsdtPayment({
@@ -87,7 +130,7 @@ export async function findIncomingUsdtPayment({
       Boolean(hash) &&
       !usedTxHashes.includes(hash ?? '') &&
       sameAddress(jettonMaster, TON_USDT_JETTON_MASTER) &&
-      transfer.amount === expectedUsdtRawAmount &&
+      isExpectedUsdtAmount(transfer.amount, expectedUsdtRawAmount) &&
       time >= createdAtSeconds
     )
   })

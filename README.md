@@ -83,3 +83,7 @@ VITE_TONCENTER_API_KEY=your_test_key
 
 Any `VITE_` value is public in the browser bundle, so do not use a valuable
 secret key here.
+
+For Vercel testing, add `VITE_TONCENTER_API_KEY` in the project Environment
+Variables settings, then redeploy the project. The browser sends it to TON
+Center as `X-API-Key`.
