@@ -10,7 +10,7 @@ import {
   createCheckoutLink,
   createCheckoutPayload,
 } from '../lib/checkoutPayload'
-import { findIncomingUsdtPayment } from '../lib/tonCenter'
+import { findIncomingUsdtPayment } from '../lib/paymentPolling'
 import type {
   BillItem,
   BillState,
@@ -40,6 +40,18 @@ const emptyBill: BillState = {
 
 function makeId() {
   return crypto.randomUUID()
+}
+
+function shortHash(hash: string) {
+  if (hash.length <= 16) {
+    return hash
+  }
+
+  return `${hash.slice(0, 8)}...${hash.slice(-6)}`
+}
+
+function collapseLongHashes(message: string) {
+  return message.replace(/[A-Za-z0-9_-]{24,}/g, (value) => shortHash(value))
 }
 
 function statusBadgeClass(status: BillItem['status']) {
@@ -209,7 +221,7 @@ function BoardPage() {
                 ...currentState.usedPaymentTxHashes,
                 payment.hash,
               ],
-              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw USDT. Transaction ${payment.hash}`,
+              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw USDT. Transaction ${shortHash(payment.hash)}`,
             }
           })
         }
@@ -378,7 +390,7 @@ function BoardPage() {
         ? [...currentState.usedPaymentTxHashes, txHash]
         : currentState.usedPaymentTxHashes,
       lastPaymentMessage: txHash
-        ? `Payment detected. Transaction ${txHash}`
+        ? `Payment detected. Transaction ${shortHash(txHash)}`
         : 'Payment detected.',
     }))
   }
@@ -581,8 +593,16 @@ function BoardPage() {
     <section className="grid gap-6 xl:grid-cols-[1.25fr_0.9fr]">
       <div className="ston-panel p-6">
         {isPaidInFull ? (
-          <div className="ston-success-banner mb-6 p-8 text-center text-6xl font-black tracking-normal">
-            Paid in Full
+          <div className="ston-success-banner mb-6 grid gap-5 p-8 text-center">
+            <p className="text-6xl font-black tracking-normal">
+              Paid in Full
+            </p>
+            <button
+              className="mx-auto rounded-lg bg-slate-950/80 px-6 py-3 text-lg font-bold text-emerald-100 ring-1 ring-emerald-950/20"
+              onClick={resetDemo}
+            >
+              Clear paid table / New table
+            </button>
           </div>
         ) : null}
 
@@ -597,7 +617,7 @@ function BoardPage() {
         </h2>
         {lastPaymentMessage ? (
           <p className="ston-panel-strong mt-5 p-4 text-lg font-semibold text-cyan-50">
-            {lastPaymentMessage}
+            {collapseLongHashes(lastPaymentMessage)}
           </p>
         ) : null}
 
@@ -717,10 +737,15 @@ function BoardPage() {
                 className="mx-auto h-auto w-full max-w-96"
               />
             </div>
-            <p className="ston-card-muted p-3 text-center text-base font-semibold text-cyan-50">
-              Use the phone Camera app to open the checkout page, then connect
-              Tonkeeper there.
-            </p>
+            <div className="ston-card-muted grid gap-2 p-4 text-base font-semibold text-cyan-50">
+              <p>1. Scan this QR with the phone Camera app.</p>
+              <p>2. Open the TableTab checkout page.</p>
+              <p>3. Connect Tonkeeper on the phone and approve payment.</p>
+              <p className="text-sm font-medium text-cyan-100/75">
+                Do not scan this QR inside Tonkeeper. It opens the web checkout
+                first.
+              </p>
+            </div>
             <p className="text-center text-3xl font-black">
               Checkout total: {formatUsdt(activeCheckout.totalCents)}
             </p>
@@ -741,8 +766,8 @@ function BoardPage() {
               </div>
             </div>
             <p className="ston-text-muted text-sm">
-              Selected items are pending while the tablet polls TON Center v3
-              every second for incoming USDT to the merchant wallet.
+              Selected items are pending while the tablet polls TonAPI every
+              second for incoming USDT to the merchant wallet.
             </p>
             <p className="ston-text-muted text-sm">
               Merchant accepts up to 0.01 USDT less to avoid rounding and swap
@@ -800,7 +825,7 @@ function BoardPage() {
         {usedPaymentTxHashes.length > 0 ? (
           <p className="ston-text-muted mt-4 break-all text-xs">
             Last used tx hash:{' '}
-            {usedPaymentTxHashes[usedPaymentTxHashes.length - 1]}
+            {shortHash(usedPaymentTxHashes[usedPaymentTxHashes.length - 1])}
           </p>
         ) : null}
         <button
