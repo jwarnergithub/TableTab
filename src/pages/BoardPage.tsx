@@ -453,7 +453,7 @@ function BoardPage() {
           </p>
 
           <form
-            className="mt-8 grid gap-4 md:grid-cols-[1fr_180px_auto]"
+            className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={addItem}
           >
             <label className="grid gap-2 text-base font-semibold text-zinc-700">
@@ -475,7 +475,7 @@ function BoardPage() {
                 placeholder="18.50"
               />
             </label>
-            <button className="self-end rounded-lg bg-zinc-950 px-6 py-4 text-lg font-semibold text-white">
+            <button className="rounded-lg bg-zinc-950 px-6 py-4 text-lg font-semibold text-white md:col-span-2">
               Add item
             </button>
           </form>
@@ -596,15 +596,17 @@ function BoardPage() {
               <button
                 key={item.id}
                 className={[
-                  'min-h-28 rounded-lg border p-5 text-left shadow-sm transition disabled:cursor-not-allowed',
+                  'flex min-h-32 flex-col justify-between rounded-lg border p-5 text-left shadow-sm transition disabled:cursor-not-allowed',
                   itemRowClass(item.status, isSelected),
                   canSelect ? 'active:scale-[0.99]' : 'opacity-80',
                 ].join(' ')}
                 disabled={!canSelect}
                 onClick={() => toggleItem(item.id)}
               >
-                <span className="flex h-full flex-col justify-between gap-4">
-                  <span className="text-2xl font-bold">{item.name}</span>
+                <span className="flex min-w-0 flex-col gap-4">
+                  <span className="break-words text-2xl font-bold">
+                    {item.name}
+                  </span>
                   <span
                     className={[
                       'w-fit rounded-full px-3 py-1 text-sm font-bold uppercase',
@@ -614,7 +616,7 @@ function BoardPage() {
                     {item.status}
                   </span>
                 </span>
-                <span className="mt-4 flex items-center justify-between gap-3">
+                <span className="mt-5 flex items-center justify-between gap-3">
                   <span className="text-xl font-bold">
                     {formatUsdt(item.priceCents)}
                   </span>
