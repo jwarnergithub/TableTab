@@ -35,9 +35,7 @@ type FindIncomingUsdtPaymentParams = {
   usedTxHashes: string[]
 }
 
-const MIN_USDT_DUST_TOLERANCE_RAW = 1_000n
-const MAX_USDT_DUST_TOLERANCE_RAW = 10_000n
-const USDT_DUST_TOLERANCE_BPS = 15n
+const MERCHANT_USDT_TOLERANCE_RAW = 10_000n
 
 function sameAddress(left?: string, right?: string) {
   return left?.toLowerCase() === right?.toLowerCase()
@@ -46,18 +44,6 @@ function sameAddress(left?: string, right?: string) {
 function toTimestamp(value?: number | string) {
   const timestamp = Number(value ?? 0)
   return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-function clampBigInt(value: bigint, min: bigint, max: bigint) {
-  if (value < min) {
-    return min
-  }
-
-  if (value > max) {
-    return max
-  }
-
-  return value
 }
 
 function isExpectedUsdtAmount(receivedAmount?: string, expectedAmount?: string) {
@@ -73,15 +59,7 @@ function isExpectedUsdtAmount(receivedAmount?: string, expectedAmount?: string) 
       return true
     }
 
-    const proportionalTolerance =
-      (expected * USDT_DUST_TOLERANCE_BPS) / 10_000n
-    const tolerance = clampBigInt(
-      proportionalTolerance,
-      MIN_USDT_DUST_TOLERANCE_RAW,
-      MAX_USDT_DUST_TOLERANCE_RAW,
-    )
-
-    return expected - received <= tolerance
+    return expected - received <= MERCHANT_USDT_TOLERANCE_RAW
   } catch {
     return false
   }

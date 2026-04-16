@@ -745,6 +745,10 @@ function BoardPage() {
               every second for incoming USDT to the merchant wallet.
             </p>
             <p className="text-sm text-zinc-600">
+              Merchant accepts up to 0.01 USDT less to avoid rounding and swap
+              dust blocking the demo.
+            </p>
+            <p className="text-sm text-zinc-600">
               This checkout times out after 2 minutes.
             </p>
             <input

@@ -364,7 +364,8 @@ function PayPage() {
       <p className="mt-2 font-medium text-zinc-700">{checkout.orderName}</p>
       <p className="mt-3 text-zinc-600">
         Connect Tonkeeper, choose the token you want to spend, then approve the
-        swap. The merchant receives the exact total in USDT.
+        swap. STON.fi Omniston uses a 1% slippage limit, and the tablet accepts
+        up to 0.01 USDT less for rounding dust.
       </p>
 
       <div className="mt-6 rounded-lg border border-zinc-200 bg-stone-50 p-4">
@@ -459,6 +460,14 @@ function PayPage() {
           <div className="flex justify-between gap-4">
             <span>Merchant receives</span>
             <span>{formatUsdt(checkout.totalCents)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span>Slippage limit</span>
+            <span>1%</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span>Merchant tolerance</span>
+            <span>0.01 USDT</span>
           </div>
         </div>
       ) : null}

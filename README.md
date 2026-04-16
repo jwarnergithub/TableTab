@@ -9,10 +9,11 @@ their unpaid items one at a time, add an optional tip, tap Pay, and scan a QR
 code with their phone.
 
 The phone checkout opens `/pay?checkout=...`, connects a TON wallet, and uses
-the STON.fi ecosystem so the guest can pay with a supported TON token while the
-merchant receives the exact total in USDT. The tablet remains the source of
-truth for item status and polls for incoming USDT payments to mark pending items
-as paid.
+the STON.fi ecosystem so the guest can pay with a supported TON token. The
+checkout uses a hardcoded 1% Omniston slippage limit, and the tablet accepts a
+merchant-side difference of up to 0.01 USDT to avoid rounding dust blocking the
+demo. The tablet remains the source of truth for item status and polls for
+incoming USDT payments to mark pending items as paid.
 
 ## Demo Flow
 
