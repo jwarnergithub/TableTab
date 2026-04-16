@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import QRCode from 'react-qr-code'
+import QRCodeDefault from 'react-qr-code'
 import {
   centsToUsdtRawAmount,
   formatUsdt,
@@ -19,6 +19,16 @@ import type {
 
 const STORAGE_KEY = 'tabletab-board-state'
 const CHECKOUT_TIMEOUT_MS = 3 * 60 * 1000
+const QRCode = (
+  QRCodeDefault as unknown as {
+    QRCode?: typeof QRCodeDefault
+    default?: typeof QRCodeDefault
+  }
+).QRCode ?? (
+  QRCodeDefault as unknown as {
+    default?: typeof QRCodeDefault
+  }
+).default ?? QRCodeDefault
 
 const emptyBill: BillState = {
   merchantWallet: '',
