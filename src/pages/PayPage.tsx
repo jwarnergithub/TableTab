@@ -363,14 +363,14 @@ function PayPage() {
 
   if (!checkout) {
     return (
-      <section className="mx-auto max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-medium uppercase text-red-700">
+      <section className="ston-panel mx-auto max-w-xl p-5">
+        <p className="text-sm font-medium uppercase text-red-200">
           Missing checkout
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-normal">
           Scan the tablet QR code
         </h1>
-        <p className="mt-3 text-zinc-600">
+        <p className="ston-text-muted mt-3">
           The phone checkout only works from a TableTab QR link. Item selection
           stays on the tablet board.
         </p>
@@ -379,21 +379,21 @@ function PayPage() {
   }
 
   return (
-    <section className="mx-auto max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium uppercase text-sky-700">
+    <section className="ston-panel mx-auto max-w-xl p-5">
+      <p className="ston-kicker px-3 py-1 text-sm font-bold uppercase">
         Phone checkout
       </p>
       <h1 className="mt-3 text-3xl font-semibold tracking-normal">
         Pay {formatUsdt(checkout.totalCents)}
       </h1>
-      <p className="mt-2 font-medium text-zinc-700">{checkout.orderName}</p>
-      <p className="mt-3 text-zinc-600">
+      <p className="mt-2 font-medium text-cyan-50">{checkout.orderName}</p>
+      <p className="ston-text-muted mt-3">
         Connect Tonkeeper, choose the token you want to spend, then approve the
         swap. STON.fi Omniston uses a 1% slippage limit, and the tablet accepts
         up to 0.01 USDT less for rounding dust.
       </p>
 
-      <div className="mt-6 rounded-lg border border-zinc-200 bg-stone-50 p-4">
+      <div className="ston-card-muted mt-6 p-4">
         <h2 className="font-semibold tracking-normal">Items</h2>
         <ul className="mt-3 space-y-2 text-sm">
           {checkout.items.map((item) => (
@@ -405,7 +405,7 @@ function PayPage() {
         </ul>
       </div>
 
-      <div className="mt-5 grid gap-2 rounded-lg border border-zinc-200 p-4 text-sm">
+      <div className="ston-card-muted mt-5 grid gap-2 p-4 text-sm">
         <div className="flex justify-between gap-4">
           <span>Subtotal</span>
           <span>{formatUsdt(checkout.subtotalCents)}</span>
@@ -414,35 +414,35 @@ function PayPage() {
           <span>Tip</span>
           <span>{formatUsdt(checkout.tipCents)}</span>
         </div>
-        <div className="flex justify-between gap-4 border-t border-zinc-200 pt-2 text-base font-semibold">
+        <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-2 text-base font-semibold">
           <span>Total</span>
           <span>{formatUsdt(checkout.totalCents)}</span>
         </div>
       </div>
 
-      <div className="mt-5 rounded-lg border border-zinc-200 p-4">
-        <p className="text-sm font-medium text-zinc-700">Merchant wallet</p>
-        <p className="mt-2 break-all text-sm text-zinc-600">
+      <div className="ston-card-muted mt-5 p-4">
+        <p className="text-sm font-medium text-cyan-50">Merchant wallet</p>
+        <p className="ston-text-muted mt-2 break-all text-sm">
           {checkout.merchantWallet}
         </p>
       </div>
 
-      <div className="mt-5 rounded-lg border border-zinc-200 p-4">
+      <div className="ston-card-muted mt-5 p-4">
         <h2 className="font-semibold tracking-normal">Wallet</h2>
-        <div className="mt-3">
+        <div className="mt-3 [&_button]:!rounded-lg">
           <TonConnectButton />
         </div>
         {payerWalletAddress ? (
-          <p className="mt-3 break-all text-sm text-zinc-600">
+          <p className="ston-text-muted mt-3 break-all text-sm">
             Connected: {payerWalletAddress}
           </p>
         ) : null}
       </div>
 
-      <label className="mt-5 grid gap-1 text-sm font-medium text-zinc-700">
+      <label className="mt-5 grid gap-1 text-sm font-medium text-cyan-50">
         Input token
         <select
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal"
+          className="ston-input px-3 py-2 text-base font-normal"
           disabled={assets.length === 0 || isPaying}
           value={selectedAssetAddress}
           onChange={(event) => setSelectedAssetAddress(event.target.value)}
@@ -458,7 +458,7 @@ function PayPage() {
         </select>
       </label>
 
-      <div className="mt-4 grid gap-2 rounded-lg bg-stone-50 p-4 text-sm">
+      <div className="ston-card-muted mt-4 grid gap-2 p-4 text-sm">
         <p className="font-medium">Checkout readiness</p>
         <p>{wallet ? 'Wallet connected' : 'Connect a wallet first'}</p>
         <p>
@@ -474,7 +474,7 @@ function PayPage() {
       </div>
 
       {quote && selectedAsset ? (
-        <div className="mt-5 grid gap-2 rounded-lg bg-stone-50 p-4 text-sm">
+        <div className="ston-panel-strong mt-5 grid gap-2 p-4 text-sm">
           <div className="flex justify-between gap-4">
             <span>You pay</span>
             <span>
@@ -498,30 +498,30 @@ function PayPage() {
       ) : null}
 
       <button
-        className="mt-5 w-full rounded-lg bg-zinc-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+        className="ston-button-primary mt-5 w-full px-5 py-3 font-semibold disabled:cursor-not-allowed"
         disabled={!canPay}
         onClick={buildAndSendPayment}
       >
         {isPaying ? 'Preparing payment...' : 'Pay with TON wallet'}
       </button>
 
-      <div className="mt-5 rounded-lg border border-zinc-200 p-4">
+      <div className="ston-card-muted mt-5 p-4">
         <p className="font-medium">Transaction status</p>
-        <p className="mt-2 text-sm text-zinc-600">{status}</p>
+        <p className="ston-text-muted mt-2 text-sm">{status}</p>
         {tradeStatus ? (
-          <p className="mt-2 text-sm text-zinc-600">
+          <p className="ston-text-muted mt-2 text-sm">
             {tradeStatusLabel(tradeStatus)}
           </p>
         ) : null}
         {transactionBoc ? (
-          <p className="mt-2 break-all text-xs text-zinc-500">
+          <p className="ston-text-muted mt-2 break-all text-xs">
             Signed BOC: {transactionBoc}
           </p>
         ) : null}
-        {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm text-red-200">{error}</p> : null}
       </div>
 
-      <p className="mt-5 text-xs text-zinc-500">
+      <p className="ston-text-muted mt-5 text-xs">
         This page does not update the tablet directly. The tablet board detects
         payment separately by watching the merchant wallet.
       </p>

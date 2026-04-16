@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.error) {
       return (
-        <section className="rounded-lg border border-red-200 bg-red-50 p-5 text-red-900">
+        <section className="ston-panel p-5 text-red-100">
           <p className="text-sm font-bold uppercase">Something crashed</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal">
             TableTab hit a page error.
@@ -36,7 +36,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <p className="mt-3 text-sm">
             Try Reset Demo on the tablet page, or refresh and scan a fresh QR.
           </p>
-          <pre className="mt-4 overflow-auto rounded-lg bg-white p-3 text-xs">
+          <pre className="ston-card-muted mt-4 overflow-auto p-3 text-xs">
             {this.state.error.message}
           </pre>
         </section>
@@ -49,19 +49,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 function App() {
   return (
-    <div className="min-h-screen bg-stone-50 text-zinc-950">
-      <header className="border-b border-zinc-200 bg-white">
+    <div className="ston-shell">
+      <header className="ston-header">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link to="/" className="text-xl font-semibold tracking-normal">
-            {APP_NAME}
+          <Link to="/" className="ston-brand text-3xl font-black tracking-normal">
+            <span>{APP_NAME}</span>
+            <span className="ston-brand-mark" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+            </span>
           </Link>
-          <p className="text-sm font-medium text-zinc-500">
+          <p className="text-sm font-medium text-cyan-50/80">
             Tablet board and phone checkout
           </p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<BoardPage />} />

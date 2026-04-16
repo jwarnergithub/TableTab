@@ -44,30 +44,30 @@ function makeId() {
 
 function statusBadgeClass(status: BillItem['status']) {
   if (status === 'paid') {
-    return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200'
+    return 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/50'
   }
 
   if (status === 'pending') {
-    return 'bg-amber-100 text-amber-800 ring-1 ring-amber-200'
+    return 'bg-amber-300/15 text-amber-200 ring-1 ring-amber-300/50'
   }
 
-  return 'bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200'
+  return 'bg-cyan-300/10 text-cyan-100 ring-1 ring-cyan-300/40'
 }
 
 function itemRowClass(status: BillItem['status'], isSelected: boolean) {
   if (status === 'paid') {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-950'
+    return 'border-emerald-300/60 bg-emerald-300/12 text-emerald-50 shadow-[0_0_24px_rgba(77,255,176,0.13)]'
   }
 
   if (status === 'pending') {
-    return 'border-amber-200 bg-amber-50 text-amber-950'
+    return 'border-amber-300/60 bg-amber-300/12 text-amber-50 shadow-[0_0_24px_rgba(248,204,93,0.13)]'
   }
 
   if (isSelected) {
-    return 'border-zinc-950 bg-zinc-950 text-white'
+    return 'border-cyan-300 bg-cyan-300/18 text-white shadow-[0_0_28px_rgba(57,245,236,0.28)]'
   }
 
-  return 'border-zinc-200 bg-white text-zinc-950'
+  return 'border-cyan-300/24 bg-slate-950/35 text-white'
 }
 
 function loadBoardState(): BoardState {
@@ -454,14 +454,14 @@ function BoardPage() {
   if (!bill.isLocked) {
     return (
       <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+        <div className="ston-panel p-6">
+          <p className="ston-kicker inline-flex px-3 py-1 text-sm font-bold uppercase">
             {stageLabel}
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-normal">
             Build the table bill
           </h1>
-          <p className="mt-3 max-w-2xl text-lg text-zinc-600">
+          <p className="ston-text-muted mt-3 max-w-2xl text-lg">
             Add the items for this table, enter the merchant wallet, then lock
             the order before handing the tablet to customers.
           </p>
@@ -470,40 +470,40 @@ function BoardPage() {
             className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={addItem}
           >
-            <label className="grid min-w-0 gap-2 text-base font-semibold text-zinc-700">
+            <label className="grid min-w-0 gap-2 text-base font-semibold text-cyan-50">
               Item name
               <input
-                className="w-full min-w-0 rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+                className="ston-input px-4 py-4 text-xl font-normal"
                 value={itemName}
                 onChange={(event) => setItemName(event.target.value)}
                 placeholder="Burger"
               />
             </label>
-            <label className="grid min-w-0 gap-2 text-base font-semibold text-zinc-700">
+            <label className="grid min-w-0 gap-2 text-base font-semibold text-cyan-50">
               Price in USDT
               <input
-                className="w-full min-w-0 rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+                className="ston-input px-4 py-4 text-xl font-normal"
                 inputMode="decimal"
                 value={itemPrice}
                 onChange={(event) => setItemPrice(event.target.value)}
                 placeholder="18.50"
               />
             </label>
-            <button className="rounded-lg bg-zinc-950 px-6 py-4 text-lg font-semibold text-white md:col-span-2">
+            <button className="ston-button-primary px-6 py-4 text-lg font-bold md:col-span-2">
               Add item
             </button>
           </form>
 
           <div className="mt-8 grid gap-3">
             {bill.items.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-300 p-6 text-lg text-zinc-600">
+              <p className="ston-dashed ston-text-muted p-6 text-lg">
                 No items added yet.
               </p>
             ) : (
               bill.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-stone-50 p-5 text-xl"
+                  className="ston-card-muted flex items-center justify-between gap-4 p-5 text-xl"
                 >
                   <span className="font-semibold">{item.name}</span>
                   <span className="font-semibold">{formatUsdt(item.priceCents)}</span>
@@ -513,14 +513,14 @@ function BoardPage() {
           </div>
         </div>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+        <aside className="ston-panel p-6">
           <h2 className="text-2xl font-semibold tracking-normal">
             Order details
           </h2>
-          <label className="mt-6 grid gap-2 text-base font-semibold text-zinc-700">
+          <label className="mt-6 grid gap-2 text-base font-semibold text-cyan-50">
             Table or order name
             <input
-              className="rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+              className="ston-input px-4 py-4 text-xl font-normal"
               value={bill.orderName}
               onChange={(event) =>
                 setBoardState((currentState) => ({
@@ -534,10 +534,10 @@ function BoardPage() {
               placeholder="Table 7"
             />
           </label>
-          <label className="mt-5 grid gap-2 text-base font-semibold text-zinc-700">
+          <label className="mt-5 grid gap-2 text-base font-semibold text-cyan-50">
             USDT receiving wallet
             <input
-              className="rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+              className="ston-input px-4 py-4 text-xl font-normal"
               value={bill.merchantWallet}
               onChange={(event) =>
                 setBoardState((currentState) => ({
@@ -552,7 +552,7 @@ function BoardPage() {
             />
           </label>
           <button
-            className="mt-6 w-full rounded-lg bg-emerald-700 px-5 py-5 text-xl font-bold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+            className="ston-button-primary mt-6 w-full px-5 py-5 text-xl font-bold disabled:cursor-not-allowed"
             disabled={
               !bill.merchantWallet.trim() ||
               !bill.orderName.trim() ||
@@ -563,12 +563,12 @@ function BoardPage() {
             Lock order
           </button>
           <button
-            className="mt-3 w-full rounded-lg border border-zinc-300 px-5 py-4 text-lg font-semibold"
+            className="ston-button-secondary mt-3 w-full px-5 py-4 text-lg font-semibold"
             onClick={resetDemo}
           >
             Reset Demo
           </button>
-          <p className="mt-5 text-base text-zinc-600">
+          <p className="ston-text-muted mt-5 text-base">
             After locking, this same tablet becomes the customer board. No
             separate item-selection page is used.
           </p>
@@ -579,14 +579,14 @@ function BoardPage() {
 
   return (
     <section className="grid gap-6 xl:grid-cols-[1.25fr_0.9fr]">
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="ston-panel p-6">
         {isPaidInFull ? (
-          <div className="mb-6 rounded-lg bg-emerald-600 p-8 text-center text-6xl font-black tracking-normal text-white shadow-sm">
+          <div className="ston-success-banner mb-6 p-8 text-center text-6xl font-black tracking-normal">
             Paid in Full
           </div>
         ) : null}
 
-        <p className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+        <p className="ston-kicker inline-flex px-3 py-1 text-sm font-bold uppercase">
           {stageLabel}
         </p>
         <h1 className="mt-4 text-5xl font-semibold tracking-normal">
@@ -596,7 +596,7 @@ function BoardPage() {
           {activeCheckout ? 'Scan to finish payment' : 'Select unpaid items'}
         </h2>
         {lastPaymentMessage ? (
-          <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-lg font-semibold text-emerald-800">
+          <p className="ston-panel-strong mt-5 p-4 text-lg font-semibold text-cyan-50">
             {lastPaymentMessage}
           </p>
         ) : null}
@@ -610,7 +610,7 @@ function BoardPage() {
               <button
                 key={item.id}
                 className={[
-                  'flex min-h-32 flex-col justify-between rounded-lg border p-5 text-left shadow-sm transition disabled:cursor-not-allowed',
+                  'flex min-h-32 flex-col justify-between rounded-lg border p-5 text-left transition disabled:cursor-not-allowed',
                   itemRowClass(item.status, isSelected),
                   canSelect ? 'active:scale-[0.99]' : 'opacity-80',
                 ].join(' ')}
@@ -638,8 +638,8 @@ function BoardPage() {
                     className={[
                       'inline-flex h-9 w-9 items-center justify-center rounded border text-lg font-bold',
                       isSelected
-                        ? 'border-emerald-700 bg-emerald-700 text-white'
-                        : 'border-zinc-300 bg-white text-white',
+                        ? 'border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(57,245,236,0.55)]'
+                        : 'border-cyan-300/30 bg-slate-950/40 text-transparent',
                     ].join(' ')}
                   >
                     ✓
@@ -650,11 +650,11 @@ function BoardPage() {
           })}
         </div>
 
-        <div className="mt-6 grid gap-5 rounded-lg border border-zinc-200 bg-stone-50 p-5">
-          <label className="grid gap-2 text-base font-semibold text-zinc-700 sm:max-w-xs">
+        <div className="ston-card-muted mt-6 grid gap-5 p-5">
+          <label className="grid gap-2 text-base font-semibold text-cyan-50 sm:max-w-xs">
             Optional tip in USDT
             <input
-              className="rounded-lg border border-zinc-300 px-4 py-4 text-xl font-normal"
+              className="ston-input px-4 py-4 text-xl font-normal"
               disabled={Boolean(activeCheckout)}
               inputMode="decimal"
               value={tipAmount}
@@ -672,14 +672,14 @@ function BoardPage() {
               <span>Tip</span>
               <span className="font-medium">{formatUsdt(tipCents)}</span>
             </div>
-            <div className="flex justify-between gap-4 border-t border-zinc-200 pt-3 text-2xl font-bold">
+            <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-3 text-2xl font-bold">
               <span>Total</span>
               <span>{formatUsdt(checkoutTotalCents)}</span>
             </div>
           </div>
 
           <button
-            className="w-full rounded-lg bg-zinc-950 px-8 py-5 text-2xl font-bold text-white disabled:cursor-not-allowed disabled:bg-zinc-300 sm:w-fit"
+            className="ston-button-primary w-full px-8 py-5 text-2xl font-bold disabled:cursor-not-allowed sm:w-fit"
             disabled={selectedItemIds.length === 0 || Boolean(activeCheckout)}
             onClick={startCheckout}
           >
@@ -688,43 +688,43 @@ function BoardPage() {
         </div>
       </div>
 
-      <aside className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <aside className="ston-panel p-6">
         <h2 className="text-2xl font-semibold tracking-normal">Demo flow</h2>
-        <p className="mt-2 text-sm text-zinc-600">{bill.orderName}</p>
+        <p className="ston-text-muted mt-2 text-sm">{bill.orderName}</p>
 
         <ol className="mt-5 grid gap-3 text-lg font-semibold">
-          <li className="rounded-lg bg-stone-100 p-4">1. Select your items</li>
-          <li className="rounded-lg bg-stone-100 p-4">2. Tap Pay</li>
-          <li className="rounded-lg bg-stone-100 p-4">
+          <li className="ston-card-muted p-4">1. Select your items</li>
+          <li className="ston-card-muted p-4">2. Tap Pay</li>
+          <li className="ston-card-muted p-4">
             3. Scan QR with your phone camera
           </li>
-          <li className="rounded-lg bg-stone-100 p-4">
+          <li className="ston-card-muted p-4">
             4. Connect Tonkeeper on your phone
           </li>
-          <li className="rounded-lg bg-stone-100 p-4">
+          <li className="ston-card-muted p-4">
             5. Choose a token and approve
           </li>
         </ol>
 
         {activeCheckout ? (
-          <div className="mt-6 grid gap-4 rounded-lg border-2 border-zinc-950 bg-white p-5">
-            <p className="inline-flex w-fit rounded-full bg-amber-100 px-3 py-1 text-sm font-bold uppercase text-amber-800 ring-1 ring-amber-200">
+          <div className="ston-panel-strong mt-6 grid gap-4 p-5">
+            <p className="inline-flex w-fit rounded-full bg-amber-300/20 px-3 py-1 text-sm font-bold uppercase text-amber-100 ring-1 ring-amber-300/40">
               Pending payment
             </p>
-            <div className="rounded-lg border border-zinc-200 bg-white p-5">
+            <div className="ston-qr p-5">
               <QRCode
                 value={activeCheckout.checkoutLink}
                 className="mx-auto h-auto w-full max-w-96"
               />
             </div>
-            <p className="rounded-lg bg-sky-50 p-3 text-center text-base font-semibold text-sky-900 ring-1 ring-sky-100">
+            <p className="ston-card-muted p-3 text-center text-base font-semibold text-cyan-50">
               Use the phone Camera app to open the checkout page, then connect
               Tonkeeper there.
             </p>
             <p className="text-center text-3xl font-black">
               Checkout total: {formatUsdt(activeCheckout.totalCents)}
             </p>
-            <div className="grid gap-2 rounded-lg bg-stone-50 p-4 text-base">
+            <div className="ston-card-muted grid gap-2 p-4 text-base">
               <div className="flex justify-between gap-4">
                 <span>Subtotal</span>
                 <span>{formatUsdt(activeCheckout.subtotalCents)}</span>
@@ -740,37 +740,37 @@ function BoardPage() {
                 </span>
               </div>
             </div>
-            <p className="text-sm text-zinc-600">
+            <p className="ston-text-muted text-sm">
               Selected items are pending while the tablet polls TON Center v3
               every second for incoming USDT to the merchant wallet.
             </p>
-            <p className="text-sm text-zinc-600">
+            <p className="ston-text-muted text-sm">
               Merchant accepts up to 0.01 USDT less to avoid rounding and swap
               dust blocking the demo.
             </p>
-            <p className="text-sm text-zinc-600">
+            <p className="ston-text-muted text-sm">
               This checkout times out after 2 minutes.
             </p>
             <input
-              className="rounded-lg border border-zinc-300 px-3 py-3 text-sm"
+              className="ston-input px-3 py-3 text-sm"
               readOnly
               value={activeCheckout.checkoutLink}
             />
             <button
-              className="rounded-lg border border-zinc-300 px-4 py-3 text-lg font-semibold"
+              className="ston-button-secondary px-4 py-3 text-lg font-semibold"
               onClick={copyCheckoutLink}
             >
               {copied ? 'Copied' : 'Copy checkout link'}
             </button>
             <button
-              className="rounded-lg border border-red-300 px-4 py-3 text-lg font-semibold text-red-700"
+              className="ston-button-danger px-4 py-3 text-lg font-semibold"
               onClick={cancelActiveCheckout}
             >
               Cancel pending payment
             </button>
             {import.meta.env.DEV ? (
               <button
-                className="rounded-lg bg-emerald-700 px-4 py-3 text-lg font-semibold text-white"
+                className="ston-button-primary px-4 py-3 text-lg font-semibold"
                 onClick={() => markActiveCheckoutPaid()}
               >
                 Simulate Payment
@@ -778,33 +778,33 @@ function BoardPage() {
             ) : null}
           </div>
         ) : (
-          <p className="mt-6 rounded-lg border border-dashed border-zinc-300 p-5 text-lg text-zinc-600">
+          <p className="ston-dashed ston-text-muted mt-6 p-5 text-lg">
             No active checkout. The next customer can select unpaid items.
           </p>
         )}
 
         <div className="mt-6 grid grid-cols-3 gap-3 text-center text-sm font-semibold">
-          <div className="rounded-lg bg-zinc-100 p-4 text-zinc-700 ring-1 ring-zinc-200">
+          <div className="ston-card-muted p-4 text-cyan-50">
             <strong className="block text-2xl">{unpaidItems.length}</strong>
             Unpaid
           </div>
-          <div className="rounded-lg bg-amber-100 p-4 text-amber-800 ring-1 ring-amber-200">
+          <div className="rounded-lg bg-amber-300/15 p-4 text-amber-100 ring-1 ring-amber-300/40">
             <strong className="block text-2xl">{pendingItems.length}</strong>
             Pending
           </div>
-          <div className="rounded-lg bg-emerald-100 p-4 text-emerald-800 ring-1 ring-emerald-200">
+          <div className="rounded-lg bg-emerald-300/15 p-4 text-emerald-100 ring-1 ring-emerald-300/40">
             <strong className="block text-2xl">{paidItems.length}</strong>
             Paid
           </div>
         </div>
         {usedPaymentTxHashes.length > 0 ? (
-          <p className="mt-4 break-all text-xs text-zinc-500">
+          <p className="ston-text-muted mt-4 break-all text-xs">
             Last used tx hash:{' '}
             {usedPaymentTxHashes[usedPaymentTxHashes.length - 1]}
           </p>
         ) : null}
         <button
-          className="mt-6 w-full rounded-lg border border-zinc-300 px-5 py-4 text-lg font-semibold"
+          className="ston-button-secondary mt-6 w-full px-5 py-4 text-lg font-semibold"
           onClick={resetDemo}
         >
           Reset Demo
