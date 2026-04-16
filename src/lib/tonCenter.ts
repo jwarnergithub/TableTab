@@ -102,17 +102,21 @@ function tonApiJettonTransfer(action: TonApiAction) {
   )
 }
 
+function cleanTonApiKey(value?: string) {
+  return value?.trim().replace(/^Bearer\s+/i, '') ?? ''
+}
+
 export async function findIncomingUsdtPayment({
   merchantWallet,
   expectedUsdtRawAmount,
   createdAt,
   usedTxHashes,
 }: FindIncomingUsdtPaymentParams): Promise<MatchedUsdtTransfer | null> {
-  const tonApiKey = (
+  const tonApiKey = cleanTonApiKey(
     import.meta.env.VITE_TONAPI_API_KEY ??
     import.meta.env.VITE_TONCENTER_API_KEY ??
-    ''
-  ).trim()
+      '',
+  )
 
   if (tonApiKey) {
     return findIncomingUsdtPaymentWithTonApi({
