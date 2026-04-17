@@ -171,11 +171,15 @@ function loadBoardState(): BoardState {
 
   try {
     const parsedState = JSON.parse(savedState) as BoardState
-    const receiveAsset = parsedState.bill.receiveAsset ?? FALLBACK_RECEIVE_ASSET
-    const activeCheckout = parsedState.activeCheckout
+    const receiveAsset = FALLBACK_RECEIVE_ASSET
+    const savedReceiveAssetAddress =
+      parsedState.bill.receiveAsset?.address ?? FALLBACK_RECEIVE_ASSET.address
+    const savedBoardWasUsdt =
+      savedReceiveAssetAddress === FALLBACK_RECEIVE_ASSET.address
+    const activeCheckout = savedBoardWasUsdt && parsedState.activeCheckout
       ? {
           ...parsedState.activeCheckout,
-          receiveAsset: parsedState.activeCheckout.receiveAsset ?? receiveAsset,
+          receiveAsset,
           subtotalCents:
             parsedState.activeCheckout.subtotalCents ??
             parsedState.activeCheckout.totalCents,
@@ -195,16 +199,24 @@ function loadBoardState(): BoardState {
       bill: {
         ...emptyBill,
         ...parsedState.bill,
-        receiveAsset,
+        receiveAsset: FALLBACK_RECEIVE_ASSET,
         items: parsedState.bill.items.map((item) => ({
           ...item,
+          status:
+            savedBoardWasUsdt || item.status !== 'pending'
+              ? item.status
+              : 'unpaid',
           priceRawAmount:
-            item.priceRawAmount ?? centsToUsdtRawAmount(item.priceCents),
+            savedBoardWasUsdt && item.priceRawAmount
+              ? item.priceRawAmount
+              : centsToUsdtRawAmount(item.priceCents),
         })),
       },
       activeCheckout,
       usedPaymentTxHashes: parsedState.usedPaymentTxHashes ?? [],
-      lastPaymentMessage: parsedState.lastPaymentMessage ?? '',
+      lastPaymentMessage: savedBoardWasUsdt
+        ? parsedState.lastPaymentMessage ?? ''
+        : 'Merchant settlement reset to USDT. Start a fresh checkout.',
     }
   } catch {
     return {
@@ -228,9 +240,6 @@ function BoardPage() {
   const [tipAmount, setTipAmount] = useState('')
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
-  const [receiveAssets, setReceiveAssets] = useState<ReceiveAsset[]>([
-    FALLBACK_RECEIVE_ASSET,
-  ])
   const [paymentAssets, setPaymentAssets] = useState<ReceiveAsset[]>([
     FALLBACK_RECEIVE_ASSET,
   ])
@@ -247,7 +256,7 @@ function BoardPage() {
     usedPaymentTxHashes,
     lastPaymentMessage,
   } = boardState
-  const receiveAsset = bill.receiveAsset ?? FALLBACK_RECEIVE_ASSET
+  const receiveAsset = FALLBACK_RECEIVE_ASSET
   const unpaidItems = bill.items.filter((item) => item.status === 'unpaid')
   const pendingItems = bill.items.filter((item) => item.status === 'pending')
   const paidItems = bill.items.filter((item) => item.status === 'paid')
@@ -267,50 +276,6 @@ function BoardPage() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(boardState))
   }, [boardState])
-
-  useEffect(() => {
-    let isActive = true
-
-    async function loadReceiveAssets() {
-      try {
-        const assets = await stonApiClient.queryAssets({
-          condition: [
-            AssetTag.Essential,
-            AssetTag.Popular,
-            AssetTag.LiquidityHigh,
-            AssetTag.LiquidityVeryHigh,
-          ].join(' | '),
-          limit: 40,
-          sortBy: ['popularity_index:desc'],
-        })
-
-        if (!isActive) {
-          return
-        }
-
-        const nextAssets = uniqueAssets([
-          FALLBACK_RECEIVE_ASSET,
-          ...assets
-            .filter(
-              (asset) =>
-                asset.kind !== 'NotAnAsset' &&
-                asset.contractAddress !== TON_ASSET_ADDRESS,
-            )
-            .map(assetFromApiAsset),
-        ])
-
-        setReceiveAssets(nextAssets)
-      } catch {
-        setReceiveAssets([FALLBACK_RECEIVE_ASSET])
-      }
-    }
-
-    loadReceiveAssets()
-
-    return () => {
-      isActive = false
-    }
-  }, [])
 
   useEffect(() => {
     let isActive = true
@@ -829,34 +794,9 @@ function BoardPage() {
             the order before handing the tablet to customers.
           </p>
 
-          <label className="mt-8 grid max-w-md gap-2 text-base font-semibold text-cyan-50">
-            Merchant receives
-            <select
-              className="ston-input px-4 py-4 text-xl font-normal"
-              disabled={bill.items.length > 0}
-              value={receiveAsset.address}
-              onChange={(event) => {
-                const nextAsset =
-                  receiveAssets.find(
-                    (asset) => asset.address === event.target.value,
-                  ) ?? FALLBACK_RECEIVE_ASSET
-
-                setBoardState((currentState) => ({
-                  ...currentState,
-                  bill: {
-                    ...currentState.bill,
-                    receiveAsset: nextAsset,
-                  },
-                }))
-              }}
-            >
-              {receiveAssets.map((asset) => (
-                <option key={asset.address} value={asset.address}>
-                  {asset.symbol}
-                </option>
-              ))}
-            </select>
-          </label>
+          <p className="ston-card-muted mt-8 max-w-md p-4 text-base font-semibold text-cyan-50">
+            Merchant receives USDT.
+          </p>
 
           <form
             className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
@@ -1153,14 +1093,10 @@ function BoardPage() {
                 </div>
                 <div className="ston-card-muted grid gap-2 p-4 text-base font-semibold text-cyan-50">
                   <p>1. Scan this QR inside Tonkeeper.</p>
-                  <p>
-                    2. Approve the direct {activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}{' '}
-                    transfer.
-                  </p>
+                  <p>2. Approve the direct USDT transfer.</p>
                   <p>3. The tablet marks items paid when funds arrive.</p>
                   <p className="text-sm font-medium text-cyan-100/75">
-                    This is the fastest path when the customer already has the
-                    merchant receive token.
+                    This is the fastest path when the customer already has USDT.
                   </p>
                 </div>
               </>
@@ -1230,7 +1166,7 @@ function BoardPage() {
                 </span>
               </div>
               <div className="flex justify-between gap-4">
-                <span>{activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol} raw amount</span>
+                <span>USDT raw amount</span>
                 <span className="break-all text-right">
                   {activeCheckout.expectedReceiveRawAmount ??
                     activeCheckout.expectedUsdtRawAmount}
@@ -1293,8 +1229,7 @@ function BoardPage() {
             ) : null}
             <p className="ston-text-muted text-sm">
               Selected items are pending while the tablet polls TonAPI every
-              second for incoming {activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}{' '}
-              to the merchant wallet.
+              second for incoming USDT to the merchant wallet.
             </p>
             <p className="ston-text-muted text-sm">
               Merchant accepts a tiny rounding difference to avoid swap dust
