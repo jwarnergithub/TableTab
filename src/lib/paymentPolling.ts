@@ -61,7 +61,9 @@ export type MatchedUsdtTransfer = {
 
 type FindIncomingUsdtPaymentParams = {
   merchantWallet: string
+  jettonMaster?: string
   expectedUsdtRawAmount: string
+  expectedRawAmount?: string
   createdAt: string
   usedTxHashes: string[]
 }
@@ -108,7 +110,9 @@ function cleanTonApiKey(value?: string) {
 
 export async function findIncomingUsdtPayment({
   merchantWallet,
+  jettonMaster = TON_USDT_JETTON_MASTER,
   expectedUsdtRawAmount,
+  expectedRawAmount = expectedUsdtRawAmount,
   createdAt,
   usedTxHashes,
 }: FindIncomingUsdtPaymentParams): Promise<MatchedUsdtTransfer | null> {
@@ -121,7 +125,8 @@ export async function findIncomingUsdtPayment({
   if (tonApiKey) {
     return findIncomingUsdtPaymentWithTonApi({
       merchantWallet,
-      expectedUsdtRawAmount,
+      jettonMaster,
+      expectedUsdtRawAmount: expectedRawAmount,
       createdAt,
       usedTxHashes,
       apiKey: tonApiKey,
@@ -130,7 +135,8 @@ export async function findIncomingUsdtPayment({
 
   return findIncomingUsdtPaymentWithTonCenter({
     merchantWallet,
-    expectedUsdtRawAmount,
+    jettonMaster,
+    expectedUsdtRawAmount: expectedRawAmount,
     createdAt,
     usedTxHashes,
   })
@@ -138,6 +144,7 @@ export async function findIncomingUsdtPayment({
 
 async function findIncomingUsdtPaymentWithTonApi({
   merchantWallet,
+  jettonMaster = TON_USDT_JETTON_MASTER,
   expectedUsdtRawAmount,
   createdAt,
   usedTxHashes,
@@ -147,7 +154,7 @@ async function findIncomingUsdtPaymentWithTonApi({
 }): Promise<MatchedUsdtTransfer | null> {
   const createdAtSeconds = Math.floor(new Date(createdAt).getTime() / 1000)
   const url = new URL(
-    `${TONAPI_API_URL}/accounts/${merchantWallet}/jettons/${TON_USDT_JETTON_MASTER}/history`,
+    `${TONAPI_API_URL}/accounts/${merchantWallet}/jettons/${jettonMaster}/history`,
   )
 
   url.searchParams.set('limit', '20')
@@ -193,6 +200,7 @@ async function findIncomingUsdtPaymentWithTonApi({
 
 async function findIncomingUsdtPaymentWithTonCenter({
   merchantWallet,
+  jettonMaster = TON_USDT_JETTON_MASTER,
   expectedUsdtRawAmount,
   createdAt,
   usedTxHashes,
@@ -202,7 +210,7 @@ async function findIncomingUsdtPaymentWithTonCenter({
 
   url.searchParams.set('owner_address', merchantWallet)
   url.searchParams.set('direction', 'in')
-  url.searchParams.set('jetton_master', TON_USDT_JETTON_MASTER)
+  url.searchParams.set('jetton_master', jettonMaster)
   url.searchParams.set('start_utime', String(createdAtSeconds))
   url.searchParams.set('limit', '20')
   url.searchParams.set('sort', 'desc')
@@ -228,12 +236,12 @@ async function findIncomingUsdtPaymentWithTonCenter({
     const time = toTimestamp(
       transfer.transaction_now ?? transfer.transaction?.time,
     )
-    const jettonMaster = transfer.jetton_master ?? transfer.jetton?.address
+    const transferJettonMaster = transfer.jetton_master ?? transfer.jetton?.address
 
     return (
       Boolean(hash) &&
       !usedTxHashes.includes(hash ?? '') &&
-      sameAddress(jettonMaster, TON_USDT_JETTON_MASTER) &&
+      sameAddress(transferJettonMaster, jettonMaster) &&
       isExpectedUsdtAmount(transfer.amount, expectedUsdtRawAmount) &&
       time >= createdAtSeconds
     )

@@ -1,25 +1,58 @@
+import { AssetTag, StonApiClient } from '@ston-fi/api'
+import {
+  GaslessSettlement,
+  SettlementMethod,
+  useOmniston,
+  type Quote,
+  type TradeStatus,
+} from '@ston-fi/omniston-sdk-react'
+import {
+  TonConnectButton,
+  useTonAddress,
+  useTonConnectUI,
+  useTonWallet,
+} from '@tonconnect/ui-react'
+import { Cell } from '@ton/core'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import QRCodeDefault from 'react-qr-code'
 import {
+  addRawAmounts,
   centsToUsdtRawAmount,
-  formatUsdt,
+  formatTokenAmount,
+  parseTokenAmountToRaw,
   parseUsdtToCents,
 } from '../lib/amounts'
 import {
   createCheckoutLink,
   createCheckoutPayload,
+  createJettonTransferLink,
 } from '../lib/checkoutPayload'
+import {
+  FALLBACK_RECEIVE_ASSET,
+  TON_ASSET_ADDRESS,
+} from '../lib/constants'
+import {
+  firstQuoteFromOmniston,
+  isFilledTrade,
+  mapTransferToTonConnectTransaction,
+  toTonAddress,
+  tradeStatusLabel,
+  unitsToDisplay,
+} from '../lib/omnistonPayment'
 import { findIncomingUsdtPayment } from '../lib/paymentPolling'
 import type {
   BillItem,
   BillState,
   BoardState,
+  ReceiveAsset,
 } from '../types/billing'
 
 const STORAGE_KEY = 'tabletab-board-state'
 const CHECKOUT_TIMEOUT_MS = 2 * 60 * 1000
 const PAYMENT_POLL_INTERVAL_MS = 1_000
+const OMNISTON_SLIPPAGE_BPS = 100
+const stonApiClient = new StonApiClient()
 const QRCode = (
   QRCodeDefault as unknown as {
     QRCode?: typeof QRCodeDefault
@@ -34,6 +67,7 @@ const QRCode = (
 const emptyBill: BillState = {
   merchantWallet: '',
   orderName: '',
+  receiveAsset: FALLBACK_RECEIVE_ASSET,
   isLocked: false,
   items: [],
 }
@@ -52,6 +86,47 @@ function shortHash(hash: string) {
 
 function collapseLongHashes(message: string) {
   return message.replace(/[A-Za-z0-9_-]{24,}/g, (value) => shortHash(value))
+}
+
+function itemRawAmount(item: BillItem) {
+  return item.priceRawAmount ?? centsToUsdtRawAmount(item.priceCents)
+}
+
+function itemDisplayAmount(item: BillItem, receiveAsset: ReceiveAsset) {
+  return formatTokenAmount(
+    itemRawAmount(item),
+    receiveAsset.decimals,
+    receiveAsset.symbol,
+  )
+}
+
+function assetFromApiAsset(asset: {
+  contractAddress: string
+  meta?: {
+    symbol?: string
+    displayName?: string
+    decimals?: number
+  }
+}): ReceiveAsset {
+  return {
+    address: asset.contractAddress,
+    symbol: asset.meta?.symbol ?? asset.contractAddress,
+    displayName: asset.meta?.displayName ?? asset.meta?.symbol ?? 'Token',
+    decimals: asset.meta?.decimals ?? 9,
+  }
+}
+
+function uniqueAssets(assets: ReceiveAsset[]) {
+  const seenAssets = new Set<string>()
+
+  return assets.filter((asset) => {
+    if (seenAssets.has(asset.address)) {
+      return false
+    }
+
+    seenAssets.add(asset.address)
+    return true
+  })
 }
 
 function statusBadgeClass(status: BillItem['status']) {
@@ -96,14 +171,20 @@ function loadBoardState(): BoardState {
 
   try {
     const parsedState = JSON.parse(savedState) as BoardState
+    const receiveAsset = parsedState.bill.receiveAsset ?? FALLBACK_RECEIVE_ASSET
     const activeCheckout = parsedState.activeCheckout
       ? {
           ...parsedState.activeCheckout,
+          receiveAsset: parsedState.activeCheckout.receiveAsset ?? receiveAsset,
           subtotalCents:
             parsedState.activeCheckout.subtotalCents ??
             parsedState.activeCheckout.totalCents,
           tipCents: parsedState.activeCheckout.tipCents ?? 0,
           expectedUsdtRawAmount:
+            parsedState.activeCheckout.expectedUsdtRawAmount ??
+            centsToUsdtRawAmount(parsedState.activeCheckout.totalCents),
+          expectedReceiveRawAmount:
+            parsedState.activeCheckout.expectedReceiveRawAmount ??
             parsedState.activeCheckout.expectedUsdtRawAmount ??
             centsToUsdtRawAmount(parsedState.activeCheckout.totalCents),
           createdAt: parsedState.activeCheckout.createdAt ?? new Date().toISOString(),
@@ -114,6 +195,12 @@ function loadBoardState(): BoardState {
       bill: {
         ...emptyBill,
         ...parsedState.bill,
+        receiveAsset,
+        items: parsedState.bill.items.map((item) => ({
+          ...item,
+          priceRawAmount:
+            item.priceRawAmount ?? centsToUsdtRawAmount(item.priceCents),
+        })),
       },
       activeCheckout,
       usedPaymentTxHashes: parsedState.usedPaymentTxHashes ?? [],
@@ -130,12 +217,29 @@ function loadBoardState(): BoardState {
 }
 
 function BoardPage() {
+  const omniston = useOmniston()
+  const wallet = useTonWallet()
+  const payerWalletAddress = useTonAddress(false)
+  const walletAssetAddress = useTonAddress()
+  const [tonConnectUI] = useTonConnectUI()
   const [boardState, setBoardState] = useState<BoardState>(loadBoardState)
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
   const [tipAmount, setTipAmount] = useState('')
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
+  const [receiveAssets, setReceiveAssets] = useState<ReceiveAsset[]>([
+    FALLBACK_RECEIVE_ASSET,
+  ])
+  const [paymentAssets, setPaymentAssets] = useState<ReceiveAsset[]>([
+    FALLBACK_RECEIVE_ASSET,
+  ])
+  const [selectedPaymentAssetAddress, setSelectedPaymentAssetAddress] = useState('')
+  const [tabletQuote, setTabletQuote] = useState<Quote | null>(null)
+  const [tabletTradeStatus, setTabletTradeStatus] = useState<TradeStatus | null>(null)
+  const [tabletPaymentStatus, setTabletPaymentStatus] = useState('')
+  const [tabletPaymentError, setTabletPaymentError] = useState('')
+  const [isTabletPaying, setIsTabletPaying] = useState(false)
 
   const {
     bill,
@@ -143,6 +247,7 @@ function BoardPage() {
     usedPaymentTxHashes,
     lastPaymentMessage,
   } = boardState
+  const receiveAsset = bill.receiveAsset ?? FALLBACK_RECEIVE_ASSET
   const unpaidItems = bill.items.filter((item) => item.status === 'unpaid')
   const pendingItems = bill.items.filter((item) => item.status === 'pending')
   const paidItems = bill.items.filter((item) => item.status === 'paid')
@@ -162,6 +267,113 @@ function BoardPage() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(boardState))
   }, [boardState])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadReceiveAssets() {
+      try {
+        const assets = await stonApiClient.queryAssets({
+          condition: [
+            AssetTag.Essential,
+            AssetTag.Popular,
+            AssetTag.LiquidityHigh,
+            AssetTag.LiquidityVeryHigh,
+          ].join(' | '),
+          limit: 40,
+          sortBy: ['popularity_index:desc'],
+        })
+
+        if (!isActive) {
+          return
+        }
+
+        const nextAssets = uniqueAssets([
+          FALLBACK_RECEIVE_ASSET,
+          ...assets
+            .filter(
+              (asset) =>
+                asset.kind !== 'NotAnAsset' &&
+                asset.contractAddress !== TON_ASSET_ADDRESS,
+            )
+            .map(assetFromApiAsset),
+        ])
+
+        setReceiveAssets(nextAssets)
+      } catch {
+        setReceiveAssets([FALLBACK_RECEIVE_ASSET])
+      }
+    }
+
+    loadReceiveAssets()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadPaymentAssets() {
+      try {
+        const assets = await stonApiClient.queryAssets({
+          condition: [
+            AssetTag.Essential,
+            AssetTag.Popular,
+            AssetTag.LiquidityVeryHigh,
+            AssetTag.WalletHasBalance,
+          ].join(' | '),
+          walletAddress: walletAssetAddress || undefined,
+          limit: 40,
+          sortBy: ['popularity_index:desc'],
+        })
+
+        if (!isActive) {
+          return
+        }
+
+        const nextAssets = uniqueAssets([
+          {
+            address: TON_ASSET_ADDRESS,
+            symbol: 'TON',
+            displayName: 'Toncoin',
+            decimals: 9,
+          },
+          FALLBACK_RECEIVE_ASSET,
+          ...assets
+            .filter((asset) => asset.kind !== 'NotAnAsset')
+            .map(assetFromApiAsset),
+        ])
+
+        setPaymentAssets(nextAssets)
+        setSelectedPaymentAssetAddress((currentAddress) =>
+          currentAddress || nextAssets[0]?.address || '',
+        )
+      } catch {
+        const fallbackAssets = [
+          {
+            address: TON_ASSET_ADDRESS,
+            symbol: 'TON',
+            displayName: 'Toncoin',
+            decimals: 9,
+          },
+          FALLBACK_RECEIVE_ASSET,
+        ]
+
+        setPaymentAssets(fallbackAssets)
+        setSelectedPaymentAssetAddress((currentAddress) =>
+          currentAddress || TON_ASSET_ADDRESS,
+        )
+      }
+    }
+
+    loadPaymentAssets()
+
+    return () => {
+      isActive = false
+    }
+  }, [walletAssetAddress])
 
   useEffect(() => {
     if (!activeCheckout) {
@@ -195,7 +407,12 @@ function BoardPage() {
       try {
         const payment = await findIncomingUsdtPayment({
           merchantWallet: bill.merchantWallet,
+          jettonMaster:
+            activeCheckout.receiveAsset?.address ?? receiveAsset.address,
           expectedUsdtRawAmount: activeCheckout.expectedUsdtRawAmount,
+          expectedRawAmount:
+            activeCheckout.expectedReceiveRawAmount ??
+            activeCheckout.expectedUsdtRawAmount,
           createdAt: activeCheckout.createdAt,
           usedTxHashes: usedPaymentTxHashes,
         })
@@ -221,7 +438,7 @@ function BoardPage() {
                 ...currentState.usedPaymentTxHashes,
                 payment.hash,
               ],
-              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw USDT. Transaction ${shortHash(payment.hash)}`,
+              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw ${activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}. Transaction ${shortHash(payment.hash)}`,
             }
           })
         }
@@ -250,11 +467,14 @@ function BoardPage() {
       isActive = false
       window.clearInterval(intervalId)
     }
-  }, [activeCheckout, bill.merchantWallet, usedPaymentTxHashes])
+  }, [activeCheckout, bill.merchantWallet, receiveAsset, usedPaymentTxHashes])
 
   const selectedItems = useMemo(
     () => bill.items.filter((item) => selectedItemIds.includes(item.id)),
     [bill.items, selectedItemIds],
+  )
+  const selectedPaymentAsset = paymentAssets.find(
+    (asset) => asset.address === selectedPaymentAssetAddress,
   )
 
   const selectedTotalCents = selectedItems.reduce(
@@ -263,12 +483,27 @@ function BoardPage() {
   )
   const tipCents = parseUsdtToCents(tipAmount)
   const checkoutTotalCents = selectedTotalCents + tipCents
+  const selectedTotalRawAmount = addRawAmounts(
+    selectedItems.map((item) => itemRawAmount(item)),
+  )
+  const tipRawAmount = parseTokenAmountToRaw(tipAmount, receiveAsset.decimals) || '0'
+  const checkoutTotalRawAmount = (
+    BigInt(selectedTotalRawAmount || '0') + BigInt(tipRawAmount || '0')
+  ).toString()
 
   function addItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const priceCents = parseUsdtToCents(itemPrice)
-    if (!itemName.trim() || Number.isNaN(priceCents) || priceCents <= 0) {
+    const priceRawAmount = parseTokenAmountToRaw(itemPrice, receiveAsset.decimals)
+
+    if (
+      !itemName.trim() ||
+      Number.isNaN(priceCents) ||
+      priceCents <= 0 ||
+      !priceRawAmount ||
+      BigInt(priceRawAmount) <= 0n
+    ) {
       return
     }
 
@@ -276,6 +511,7 @@ function BoardPage() {
       id: makeId(),
       name: itemName.trim(),
       priceCents,
+      priceRawAmount,
       status: 'unpaid',
     }
 
@@ -305,6 +541,7 @@ function BoardPage() {
         ...currentState.bill,
         merchantWallet: currentState.bill.merchantWallet.trim(),
         orderName: currentState.bill.orderName.trim(),
+        receiveAsset,
         isLocked: true,
       },
     }))
@@ -318,14 +555,20 @@ function BoardPage() {
     )
   }
 
-  function startCheckout() {
+  function startCheckout(paymentMode: 'direct' | 'omniston') {
     if (activeCheckout || selectedItems.length === 0) {
       return
     }
 
     const checkoutId = makeId()
     const createdAt = new Date().toISOString()
-    const expectedUsdtRawAmount = centsToUsdtRawAmount(checkoutTotalCents)
+    const expectedUsdtRawAmount = checkoutTotalRawAmount
+    const directPaymentLink = createJettonTransferLink({
+      merchantWallet: bill.merchantWallet,
+      jettonMaster: receiveAsset.address,
+      amountRaw: checkoutTotalRawAmount,
+      checkoutId,
+    })
     const payload = createCheckoutPayload({
       checkoutId,
       merchantWallet: bill.merchantWallet,
@@ -334,11 +577,15 @@ function BoardPage() {
         id: item.id,
         name: item.name,
         priceCents: item.priceCents,
+        priceRawAmount: itemRawAmount(item),
       })),
       subtotalCents: selectedTotalCents,
       tipCents,
       totalCents: checkoutTotalCents,
       expectedUsdtRawAmount,
+      receiveAsset,
+      expectedReceiveRawAmount: checkoutTotalRawAmount,
+      directPaymentLink,
       createdAt,
     })
     const checkoutLink = createCheckoutLink(payload)
@@ -360,14 +607,22 @@ function BoardPage() {
         tipCents,
         totalCents: checkoutTotalCents,
         expectedUsdtRawAmount,
+        receiveAsset,
+        expectedReceiveRawAmount: checkoutTotalRawAmount,
+        directPaymentLink,
+        paymentMode,
         createdAt,
         checkoutLink,
       },
-      lastPaymentMessage: 'Waiting for USDT payment.',
+      lastPaymentMessage: `Waiting for ${receiveAsset.symbol} payment.`,
     }))
     setSelectedItemIds([])
     setTipAmount('')
     setCopied(false)
+    setTabletQuote(null)
+    setTabletTradeStatus(null)
+    setTabletPaymentStatus('')
+    setTabletPaymentError('')
   }
 
   function markActiveCheckoutPaid(txHash?: string) {
@@ -444,8 +699,100 @@ function BoardPage() {
       return
     }
 
-    await navigator.clipboard.writeText(activeCheckout.checkoutLink)
+    await navigator.clipboard.writeText(
+      activeCheckout.paymentMode === 'direct'
+        ? activeCheckout.directPaymentLink ?? activeCheckout.checkoutLink
+        : activeCheckout.checkoutLink,
+    )
     setCopied(true)
+  }
+
+  async function payActiveCheckoutWithTabletWallet() {
+    if (
+      !activeCheckout ||
+      !wallet ||
+      !payerWalletAddress ||
+      !selectedPaymentAsset
+    ) {
+      return
+    }
+
+    setIsTabletPaying(true)
+    setTabletPaymentError('')
+    setTabletQuote(null)
+    setTabletTradeStatus(null)
+
+    try {
+      setTabletPaymentStatus('Requesting STON.fi Omniston quote.')
+      const nextQuote = await firstQuoteFromOmniston(
+        omniston.requestForQuote({
+          bidAssetAddress: toTonAddress(selectedPaymentAsset.address),
+          askAssetAddress: toTonAddress(
+            activeCheckout.receiveAsset?.address ?? receiveAsset.address,
+          ),
+          amount: {
+            askUnits:
+              activeCheckout.expectedReceiveRawAmount ??
+              activeCheckout.expectedUsdtRawAmount,
+          },
+          settlementMethods: [SettlementMethod.SETTLEMENT_METHOD_SWAP],
+          settlementParams: {
+            gaslessSettlement: GaslessSettlement.GASLESS_SETTLEMENT_PROHIBITED,
+            maxOutgoingMessages: 4,
+            maxPriceSlippageBps: OMNISTON_SLIPPAGE_BPS,
+          },
+        }),
+      )
+      setTabletQuote(nextQuote)
+
+      setTabletPaymentStatus('Building wallet transfer.')
+      const transfer = await omniston.buildTransfer({
+        sourceAddress: toTonAddress(payerWalletAddress),
+        destinationAddress: toTonAddress(bill.merchantWallet),
+        gasExcessAddress: toTonAddress(payerWalletAddress),
+        quote: nextQuote,
+        useRecommendedSlippage: true,
+      })
+      const transaction = mapTransferToTonConnectTransaction(transfer)
+
+      setTabletPaymentStatus('Waiting for wallet confirmation.')
+      const result = await tonConnectUI.sendTransaction(transaction)
+      setTabletPaymentStatus('Transaction sent. Tracking trade status.')
+
+      const outgoingTxHash = Cell.fromBase64(result.boc).hash().toString('hex')
+      omniston
+        .trackTrade({
+          quoteId: nextQuote.quoteId,
+          traderWalletAddress: toTonAddress(payerWalletAddress),
+          outgoingTxHash,
+        })
+        .subscribe({
+          next: (nextStatus) => {
+            setTabletTradeStatus(nextStatus)
+            setTabletPaymentStatus(tradeStatusLabel(nextStatus))
+
+            if (isFilledTrade(nextStatus)) {
+              void tonConnectUI.disconnect()
+            }
+          },
+          error: (trackError: unknown) => {
+            setTabletPaymentError(
+              trackError instanceof Error
+                ? trackError.message
+                : 'Trade tracking failed.',
+            )
+          },
+        })
+    } catch (paymentError) {
+      setTabletPaymentError(
+        paymentError instanceof Error
+          ? paymentError.message
+          : 'Payment failed before it was sent.',
+      )
+      setTabletPaymentStatus('Payment was not completed.')
+    } finally {
+      setIsTabletPaying(false)
+    }
   }
 
   function resetDemo() {
@@ -461,6 +808,10 @@ function BoardPage() {
     setTipAmount('')
     setSelectedItemIds([])
     setCopied(false)
+    setTabletQuote(null)
+    setTabletTradeStatus(null)
+    setTabletPaymentStatus('')
+    setTabletPaymentError('')
   }
 
   if (!bill.isLocked) {
@@ -478,8 +829,37 @@ function BoardPage() {
             the order before handing the tablet to customers.
           </p>
 
+          <label className="mt-8 grid max-w-md gap-2 text-base font-semibold text-cyan-50">
+            Merchant receives
+            <select
+              className="ston-input px-4 py-4 text-xl font-normal"
+              disabled={bill.items.length > 0}
+              value={receiveAsset.address}
+              onChange={(event) => {
+                const nextAsset =
+                  receiveAssets.find(
+                    (asset) => asset.address === event.target.value,
+                  ) ?? FALLBACK_RECEIVE_ASSET
+
+                setBoardState((currentState) => ({
+                  ...currentState,
+                  bill: {
+                    ...currentState.bill,
+                    receiveAsset: nextAsset,
+                  },
+                }))
+              }}
+            >
+              {receiveAssets.map((asset) => (
+                <option key={asset.address} value={asset.address}>
+                  {asset.symbol}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <form
-            className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
+            className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={addItem}
           >
             <label className="grid min-w-0 gap-2 text-base font-semibold text-cyan-50">
@@ -492,7 +872,7 @@ function BoardPage() {
               />
             </label>
             <label className="grid min-w-0 gap-2 text-base font-semibold text-cyan-50">
-              Price in USDT
+              Price in {receiveAsset.symbol}
               <input
                 className="ston-input px-4 py-4 text-xl font-normal"
                 inputMode="decimal"
@@ -518,7 +898,9 @@ function BoardPage() {
                   className="ston-card-muted flex items-center justify-between gap-4 p-5 text-xl"
                 >
                   <span className="font-semibold">{item.name}</span>
-                  <span className="font-semibold">{formatUsdt(item.priceCents)}</span>
+                  <span className="font-semibold">
+                    {itemDisplayAmount(item, receiveAsset)}
+                  </span>
                 </div>
               ))
             )}
@@ -547,7 +929,7 @@ function BoardPage() {
             />
           </label>
           <label className="mt-5 grid gap-2 text-base font-semibold text-cyan-50">
-            USDT receiving wallet
+            Receiving wallet
             <input
               className="ston-input px-4 py-4 text-xl font-normal"
               value={bill.merchantWallet}
@@ -652,7 +1034,7 @@ function BoardPage() {
                 </span>
                 <span className="mt-5 flex items-center justify-between gap-3">
                   <span className="text-xl font-bold">
-                    {formatUsdt(item.priceCents)}
+                    {itemDisplayAmount(item, receiveAsset)}
                   </span>
                   <span
                     className={[
@@ -672,7 +1054,7 @@ function BoardPage() {
 
         <div className="ston-card-muted mt-6 grid gap-5 p-5">
           <label className="grid gap-2 text-base font-semibold text-cyan-50 sm:max-w-xs">
-            Optional tip in USDT
+            Optional tip in {receiveAsset.symbol}
             <input
               className="ston-input px-4 py-4 text-xl font-normal"
               disabled={Boolean(activeCheckout)}
@@ -686,25 +1068,52 @@ function BoardPage() {
           <div className="grid gap-3 text-lg sm:max-w-md">
             <div className="flex justify-between gap-4">
               <span>Selected subtotal</span>
-              <span className="font-medium">{formatUsdt(selectedTotalCents)}</span>
+              <span className="font-medium">
+                {formatTokenAmount(
+                  selectedTotalRawAmount,
+                  receiveAsset.decimals,
+                  receiveAsset.symbol,
+                )}
+              </span>
             </div>
             <div className="flex justify-between gap-4">
               <span>Tip</span>
-              <span className="font-medium">{formatUsdt(tipCents)}</span>
+              <span className="font-medium">
+                {formatTokenAmount(
+                  tipRawAmount,
+                  receiveAsset.decimals,
+                  receiveAsset.symbol,
+                )}
+              </span>
             </div>
             <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-3 text-2xl font-bold">
               <span>Total</span>
-              <span>{formatUsdt(checkoutTotalCents)}</span>
+              <span>
+                {formatTokenAmount(
+                  checkoutTotalRawAmount,
+                  receiveAsset.decimals,
+                  receiveAsset.symbol,
+                )}
+              </span>
             </div>
           </div>
 
-          <button
-            className="ston-button-primary w-full px-8 py-5 text-2xl font-bold disabled:cursor-not-allowed sm:w-fit"
-            disabled={selectedItemIds.length === 0 || Boolean(activeCheckout)}
-            onClick={startCheckout}
-          >
-            Pay
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="ston-button-primary w-full px-8 py-5 text-xl font-bold disabled:cursor-not-allowed sm:w-fit"
+              disabled={selectedItemIds.length === 0 || Boolean(activeCheckout)}
+              onClick={() => startCheckout('direct')}
+            >
+              Fast Pay with {receiveAsset.symbol}
+            </button>
+            <button
+              className="ston-button-secondary w-full px-8 py-5 text-xl font-bold disabled:cursor-not-allowed sm:w-fit"
+              disabled={selectedItemIds.length === 0 || Boolean(activeCheckout)}
+              onClick={() => startCheckout('omniston')}
+            >
+              Pay with any token
+            </button>
+          </div>
         </div>
       </div>
 
@@ -731,47 +1140,165 @@ function BoardPage() {
             <p className="inline-flex w-fit rounded-full bg-amber-300/20 px-3 py-1 text-sm font-bold uppercase text-amber-100 ring-1 ring-amber-300/40">
               Pending payment
             </p>
-            <div className="ston-qr p-5">
-              <QRCode
-                value={activeCheckout.checkoutLink}
-                className="mx-auto h-auto w-full max-w-96"
-              />
-            </div>
-            <div className="ston-card-muted grid gap-2 p-4 text-base font-semibold text-cyan-50">
-              <p>1. Scan this QR with the phone Camera app.</p>
-              <p>2. Open the TableTab checkout page.</p>
-              <p>3. Connect Tonkeeper on the phone and approve payment.</p>
-              <p className="text-sm font-medium text-cyan-100/75">
-                Do not scan this QR inside Tonkeeper. It opens the web checkout
-                first.
-              </p>
-            </div>
+            {activeCheckout.paymentMode === 'direct' ? (
+              <>
+                <div className="ston-qr p-5">
+                  <QRCode
+                    value={
+                      activeCheckout.directPaymentLink ??
+                      activeCheckout.checkoutLink
+                    }
+                    className="mx-auto h-auto w-full max-w-96"
+                  />
+                </div>
+                <div className="ston-card-muted grid gap-2 p-4 text-base font-semibold text-cyan-50">
+                  <p>1. Scan this QR inside Tonkeeper.</p>
+                  <p>
+                    2. Approve the direct {activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}{' '}
+                    transfer.
+                  </p>
+                  <p>3. The tablet marks items paid when funds arrive.</p>
+                  <p className="text-sm font-medium text-cyan-100/75">
+                    This is the fastest path when the customer already has the
+                    merchant receive token.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="ston-card-muted grid gap-4 p-4 text-base font-semibold text-cyan-50">
+                <p>1. Tap Connect wallet to show a TonConnect QR.</p>
+                <p>2. Scan that QR inside Tonkeeper.</p>
+                <p>3. Choose the token to spend and approve the Omniston swap.</p>
+                <div className="[&_button]:!rounded-lg">
+                  <TonConnectButton />
+                </div>
+                {payerWalletAddress ? (
+                  <p className="break-all text-sm font-medium text-cyan-100/75">
+                    Connected: {payerWalletAddress}
+                  </p>
+                ) : null}
+              </div>
+            )}
             <p className="text-center text-3xl font-black">
-              Checkout total: {formatUsdt(activeCheckout.totalCents)}
+              Checkout total:{' '}
+              {formatTokenAmount(
+                activeCheckout.expectedReceiveRawAmount ??
+                  activeCheckout.expectedUsdtRawAmount,
+                activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
+                activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol,
+              )}
             </p>
             <div className="ston-card-muted grid gap-2 p-4 text-base">
               <div className="flex justify-between gap-4">
                 <span>Subtotal</span>
-                <span>{formatUsdt(activeCheckout.subtotalCents)}</span>
+                <span>
+                  {formatTokenAmount(
+                    addRawAmounts(
+                      bill.items
+                        .filter((item) =>
+                          activeCheckout.itemIds.includes(item.id),
+                        )
+                        .map((item) => itemRawAmount(item)),
+                    ),
+                    activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
+                    activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol,
+                  )}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span>Tip</span>
-                <span>{formatUsdt(activeCheckout.tipCents)}</span>
+                <span>
+                  {formatTokenAmount(
+                    (
+                      BigInt(
+                        activeCheckout.expectedReceiveRawAmount ??
+                          activeCheckout.expectedUsdtRawAmount,
+                      ) -
+                      BigInt(
+                        addRawAmounts(
+                          bill.items
+                            .filter((item) =>
+                              activeCheckout.itemIds.includes(item.id),
+                            )
+                            .map((item) => itemRawAmount(item)),
+                        ),
+                      )
+                    ).toString(),
+                    activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
+                    activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol,
+                  )}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
-                <span>USDT raw amount</span>
+                <span>{activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol} raw amount</span>
                 <span className="break-all text-right">
-                  {activeCheckout.expectedUsdtRawAmount}
+                  {activeCheckout.expectedReceiveRawAmount ??
+                    activeCheckout.expectedUsdtRawAmount}
                 </span>
               </div>
             </div>
+            {activeCheckout.paymentMode === 'omniston' ? (
+              <div className="ston-card-muted grid gap-3 p-4">
+                <label className="grid gap-1 text-sm font-medium text-cyan-50">
+                  Customer pays with
+                  <select
+                    className="ston-input px-3 py-2 text-base font-normal"
+                    disabled={isTabletPaying}
+                    value={selectedPaymentAssetAddress}
+                    onChange={(event) =>
+                      setSelectedPaymentAssetAddress(event.target.value)
+                    }
+                  >
+                    {paymentAssets.map((asset) => (
+                      <option key={asset.address} value={asset.address}>
+                        {asset.symbol}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {tabletQuote && selectedPaymentAsset ? (
+                  <p className="text-sm text-cyan-100/80">
+                    Estimated spend:{' '}
+                    {unitsToDisplay(
+                      tabletQuote.bidUnits,
+                      selectedPaymentAsset.decimals,
+                    )}{' '}
+                    {selectedPaymentAsset.symbol}
+                  </p>
+                ) : null}
+                <button
+                  className="ston-button-primary px-4 py-3 text-lg font-semibold disabled:cursor-not-allowed"
+                  disabled={
+                    !wallet ||
+                    !selectedPaymentAsset ||
+                    isTabletPaying
+                  }
+                  onClick={payActiveCheckoutWithTabletWallet}
+                >
+                  {isTabletPaying ? 'Preparing payment...' : 'Pay with connected wallet'}
+                </button>
+                <p className="ston-text-muted text-sm">
+                  {tabletPaymentStatus ||
+                    'Connect a wallet, then pay through STON.fi Omniston.'}
+                </p>
+                {tabletTradeStatus ? (
+                  <p className="ston-text-muted text-sm">
+                    {tradeStatusLabel(tabletTradeStatus)}
+                  </p>
+                ) : null}
+                {tabletPaymentError ? (
+                  <p className="text-sm text-red-200">{tabletPaymentError}</p>
+                ) : null}
+              </div>
+            ) : null}
             <p className="ston-text-muted text-sm">
               Selected items are pending while the tablet polls TonAPI every
-              second for incoming USDT to the merchant wallet.
+              second for incoming {activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}{' '}
+              to the merchant wallet.
             </p>
             <p className="ston-text-muted text-sm">
-              Merchant accepts up to 0.01 USDT less to avoid rounding and swap
-              dust blocking the demo.
+              Merchant accepts a tiny rounding difference to avoid swap dust
+              blocking the demo.
             </p>
             <p className="ston-text-muted text-sm">
               This checkout times out after 2 minutes.
@@ -779,14 +1306,25 @@ function BoardPage() {
             <input
               className="ston-input px-3 py-3 text-sm"
               readOnly
-              value={activeCheckout.checkoutLink}
+              value={
+                activeCheckout.paymentMode === 'direct'
+                  ? activeCheckout.directPaymentLink ??
+                    activeCheckout.checkoutLink
+                  : activeCheckout.checkoutLink
+              }
             />
             <button
               className="ston-button-secondary px-4 py-3 text-lg font-semibold"
               onClick={copyCheckoutLink}
             >
-              {copied ? 'Copied' : 'Copy checkout link'}
+              {copied ? 'Copied' : 'Copy payment link'}
             </button>
+            {activeCheckout.paymentMode === 'omniston' ? (
+              <div className="ston-dashed ston-text-muted p-4 text-sm">
+                Fallback: scan or copy this web checkout link if tablet-side
+                wallet connection is not available.
+              </div>
+            ) : null}
             <button
               className="ston-button-danger px-4 py-3 text-lg font-semibold"
               onClick={cancelActiveCheckout}

@@ -20,7 +20,7 @@ import {
 import { Cell } from '@ton/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { formatUsdt } from '../lib/amounts'
+import { formatTokenAmount } from '../lib/amounts'
 import { TON_USDT_JETTON_MASTER } from '../lib/constants'
 import { decodeCheckoutPayload } from '../lib/checkoutPayload'
 
@@ -148,6 +148,7 @@ function PayPage() {
       return null
     }
   }, [checkoutParam])
+  const receiveAsset = checkout?.receiveAsset ?? FALLBACK_USDT_ASSET
 
   const omniston = useOmniston()
   const wallet = useTonWallet()
@@ -183,24 +184,12 @@ function PayPage() {
           AssetTag.LiquidityVeryHigh,
           AssetTag.WalletHasBalance,
         ].join(' | ')
-        const [availableAssets, usdtMatches] = await Promise.all([
-          stonApiClient.queryAssets({
-            condition,
-            walletAddress: walletAssetAddress || undefined,
-            limit: 30,
-            sortBy: ['popularity_index:desc'],
-          }),
-          stonApiClient.queryAssets({
-            searchTerms: ['USDT'],
-            condition: [
-              AssetTag.Essential,
-              AssetTag.Popular,
-              AssetTag.LiquidityHigh,
-              AssetTag.LiquidityVeryHigh,
-            ].join(' | '),
-            limit: 10,
-          }),
-        ])
+        const availableAssets = await stonApiClient.queryAssets({
+          condition,
+          walletAddress: walletAssetAddress || undefined,
+          limit: 30,
+          sortBy: ['popularity_index:desc'],
+        })
 
         if (!isActive) {
           return
@@ -220,20 +209,8 @@ function PayPage() {
             ? apiAssets
             : [FALLBACK_TON_ASSET, FALLBACK_USDT_ASSET]
 
-        const nextUsdt = usdtMatches.find(
-          (asset) => asset.meta?.symbol?.toUpperCase() === 'USDT',
-        )
-        const nextUsdtAsset = nextUsdt
-          ? {
-              address: nextUsdt.contractAddress,
-              symbol: nextUsdt.meta?.symbol ?? 'USDT',
-              displayName: nextUsdt.meta?.displayName ?? 'Tether USD',
-              decimals: nextUsdt.meta?.decimals ?? 6,
-            }
-          : FALLBACK_USDT_ASSET
-
         setAssets(nextAssets)
-        setUsdtAsset(nextUsdtAsset)
+        setUsdtAsset(receiveAsset)
         setSelectedAssetAddress((currentAddress) =>
           currentAddress || nextAssets[0]?.address || '',
         )
@@ -248,7 +225,7 @@ function PayPage() {
             : 'Could not load STON.fi token list.',
         )
         setAssets([FALLBACK_TON_ASSET, FALLBACK_USDT_ASSET])
-        setUsdtAsset(FALLBACK_USDT_ASSET)
+        setUsdtAsset(receiveAsset)
         setSelectedAssetAddress((currentAddress) =>
           currentAddress || FALLBACK_TON_ASSET.address,
         )
@@ -260,7 +237,7 @@ function PayPage() {
     return () => {
       isActive = false
     }
-  }, [walletAssetAddress])
+  }, [receiveAsset, walletAssetAddress])
 
   useEffect(() => {
     return () => {
@@ -284,9 +261,11 @@ function PayPage() {
       const nextQuote = await firstQuoteFromOmniston(
         omniston.requestForQuote({
           bidAssetAddress: toTonAddress(selectedAsset.address),
-          askAssetAddress: toTonAddress(usdtAsset.address),
+          askAssetAddress: toTonAddress(receiveAsset.address),
           amount: {
-            askUnits: checkout.expectedUsdtRawAmount,
+            askUnits:
+              checkout.expectedReceiveRawAmount ??
+              checkout.expectedUsdtRawAmount,
           },
           settlementMethods: [SettlementMethod.SETTLEMENT_METHOD_SWAP],
           settlementParams: {
@@ -384,13 +363,18 @@ function PayPage() {
         Phone checkout
       </p>
       <h1 className="mt-3 text-3xl font-semibold tracking-normal">
-        Pay {formatUsdt(checkout.totalCents)}
+        Pay{' '}
+        {formatTokenAmount(
+          checkout.expectedReceiveRawAmount ?? checkout.expectedUsdtRawAmount,
+          receiveAsset.decimals,
+          receiveAsset.symbol,
+        )}
       </h1>
       <p className="mt-2 font-medium text-cyan-50">{checkout.orderName}</p>
       <p className="ston-text-muted mt-3">
         Connect Tonkeeper, choose the token you want to spend, then approve the
         swap. STON.fi Omniston uses a 1% slippage limit, and the tablet accepts
-        up to 0.01 USDT less for rounding dust.
+        a tiny rounding difference for swap dust.
       </p>
 
       <div className="ston-card-muted mt-6 p-4">
@@ -399,7 +383,13 @@ function PayPage() {
           {checkout.items.map((item) => (
             <li key={item.id} className="flex justify-between gap-4">
               <span>{item.name}</span>
-              <span>{formatUsdt(item.priceCents)}</span>
+              <span>
+                {formatTokenAmount(
+                  item.priceRawAmount ?? String(item.priceCents * 10_000),
+                  receiveAsset.decimals,
+                  receiveAsset.symbol,
+                )}
+              </span>
             </li>
           ))}
         </ul>
@@ -408,15 +398,55 @@ function PayPage() {
       <div className="ston-card-muted mt-5 grid gap-2 p-4 text-sm">
         <div className="flex justify-between gap-4">
           <span>Subtotal</span>
-          <span>{formatUsdt(checkout.subtotalCents)}</span>
+          <span>
+            {formatTokenAmount(
+              checkout.items
+                .reduce(
+                  (total, item) =>
+                    total +
+                    BigInt(
+                      item.priceRawAmount ?? String(item.priceCents * 10_000),
+                    ),
+                  0n,
+                )
+                .toString(),
+              receiveAsset.decimals,
+              receiveAsset.symbol,
+            )}
+          </span>
         </div>
         <div className="flex justify-between gap-4">
           <span>Tip</span>
-          <span>{formatUsdt(checkout.tipCents)}</span>
+          <span>
+            {formatTokenAmount(
+              (
+                BigInt(
+                  checkout.expectedReceiveRawAmount ??
+                    checkout.expectedUsdtRawAmount,
+                ) -
+                checkout.items.reduce(
+                  (total, item) =>
+                    total +
+                    BigInt(
+                      item.priceRawAmount ?? String(item.priceCents * 10_000),
+                    ),
+                  0n,
+                )
+              ).toString(),
+              receiveAsset.decimals,
+              receiveAsset.symbol,
+            )}
+          </span>
         </div>
         <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-2 text-base font-semibold">
           <span>Total</span>
-          <span>{formatUsdt(checkout.totalCents)}</span>
+          <span>
+            {formatTokenAmount(
+              checkout.expectedReceiveRawAmount ?? checkout.expectedUsdtRawAmount,
+              receiveAsset.decimals,
+              receiveAsset.symbol,
+            )}
+          </span>
         </div>
       </div>
 
@@ -484,7 +514,14 @@ function PayPage() {
           </div>
           <div className="flex justify-between gap-4">
             <span>Merchant receives</span>
-            <span>{formatUsdt(checkout.totalCents)}</span>
+            <span>
+              {formatTokenAmount(
+                checkout.expectedReceiveRawAmount ??
+                  checkout.expectedUsdtRawAmount,
+                receiveAsset.decimals,
+                receiveAsset.symbol,
+              )}
+            </span>
           </div>
           <div className="flex justify-between gap-4">
             <span>Slippage limit</span>
@@ -492,7 +529,7 @@ function PayPage() {
           </div>
           <div className="flex justify-between gap-4">
             <span>Merchant tolerance</span>
-            <span>0.01 USDT</span>
+            <span>Small rounding dust</span>
           </div>
         </div>
       ) : null}
