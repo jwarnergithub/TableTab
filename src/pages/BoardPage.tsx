@@ -794,12 +794,12 @@ function BoardPage() {
             the order before handing the tablet to customers.
           </p>
 
-          <p className="ston-card-muted mt-8 max-w-md p-4 text-base font-semibold text-cyan-50">
-            Merchant receives USDT.
+          <p className="mt-4 max-w-2xl text-base font-semibold text-cyan-100">
+            Merchant receives <span className="text-cyan-300">USDT</span>.
           </p>
 
           <form
-            className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
+            className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={addItem}
           >
             <label className="grid min-w-0 gap-2 text-base font-semibold text-cyan-50">
