@@ -55,6 +55,37 @@ export function formatTokenAmount(rawAmount: string, decimals: number, symbol: s
   return `${displayAmount} ${symbol}`
 }
 
+export function formatTokenAmountFixed(
+  rawAmount: string,
+  decimals: number,
+  symbol: string,
+  fractionDigits = 2,
+) {
+  const rawValue = BigInt(rawAmount || '0')
+
+  if (fractionDigits === 0) {
+    const scale = 10n ** BigInt(decimals)
+    const rounded = (rawValue + scale / 2n) / scale
+
+    return `${rounded.toString()} ${symbol}`
+  }
+
+  const displayScale = 10n ** BigInt(fractionDigits)
+  const displayUnits =
+    decimals > fractionDigits
+      ? (() => {
+          const roundingScale = 10n ** BigInt(decimals - fractionDigits)
+          return (rawValue + roundingScale / 2n) / roundingScale
+        })()
+      : rawValue * 10n ** BigInt(fractionDigits - decimals)
+  const whole = displayUnits / displayScale
+  const fraction = (displayUnits % displayScale)
+    .toString()
+    .padStart(fractionDigits, '0')
+
+  return `${whole.toString()}.${fraction} ${symbol}`
+}
+
 export function addRawAmounts(amounts: string[]) {
   return amounts.reduce((total, amount) => total + BigInt(amount || '0'), 0n).toString()
 }

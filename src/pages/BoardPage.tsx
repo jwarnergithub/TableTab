@@ -19,7 +19,7 @@ import QRCodeDefault from 'react-qr-code'
 import {
   addRawAmounts,
   centsToUsdtRawAmount,
-  formatTokenAmount,
+  formatTokenAmountFixed,
   parseTokenAmountToRaw,
   parseUsdtToCents,
 } from '../lib/amounts'
@@ -93,7 +93,7 @@ function itemRawAmount(item: BillItem) {
 }
 
 function itemDisplayAmount(item: BillItem, receiveAsset: ReceiveAsset) {
-  return formatTokenAmount(
+  return formatTokenAmountFixed(
     itemRawAmount(item),
     receiveAsset.decimals,
     receiveAsset.symbol,
@@ -1000,7 +1000,7 @@ function BoardPage() {
             <div className="flex justify-between gap-4">
               <span>Selected subtotal</span>
               <span className="font-medium">
-                {formatTokenAmount(
+                {formatTokenAmountFixed(
                   selectedTotalRawAmount,
                   receiveAsset.decimals,
                   receiveAsset.symbol,
@@ -1010,7 +1010,7 @@ function BoardPage() {
             <div className="flex justify-between gap-4">
               <span>Tip</span>
               <span className="font-medium">
-                {formatTokenAmount(
+                {formatTokenAmountFixed(
                   tipRawAmount,
                   receiveAsset.decimals,
                   receiveAsset.symbol,
@@ -1020,7 +1020,7 @@ function BoardPage() {
             <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-3 text-2xl font-bold">
               <span>Total</span>
               <span>
-                {formatTokenAmount(
+                {formatTokenAmountFixed(
                   checkoutTotalRawAmount,
                   receiveAsset.decimals,
                   receiveAsset.symbol,
@@ -1106,7 +1106,7 @@ function BoardPage() {
             )}
             <p className="text-center text-3xl font-black">
               Checkout total:{' '}
-              {formatTokenAmount(
+              {formatTokenAmountFixed(
                 activeCheckout.expectedReceiveRawAmount ??
                   activeCheckout.expectedUsdtRawAmount,
                 activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
@@ -1117,7 +1117,7 @@ function BoardPage() {
               <div className="flex justify-between gap-4">
                 <span>Subtotal</span>
                 <span>
-                  {formatTokenAmount(
+                  {formatTokenAmountFixed(
                     addRawAmounts(
                       bill.items
                         .filter((item) =>
@@ -1133,7 +1133,7 @@ function BoardPage() {
               <div className="flex justify-between gap-4">
                 <span>Tip</span>
                 <span>
-                  {formatTokenAmount(
+                  {formatTokenAmountFixed(
                     (
                       BigInt(
                         activeCheckout.expectedReceiveRawAmount ??
@@ -1152,13 +1152,6 @@ function BoardPage() {
                     activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
                     activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol,
                   )}
-                </span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span>USDT raw amount</span>
-                <span className="break-all text-right">
-                  {activeCheckout.expectedReceiveRawAmount ??
-                    activeCheckout.expectedUsdtRawAmount}
                 </span>
               </div>
             </div>

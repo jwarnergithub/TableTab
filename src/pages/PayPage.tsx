@@ -20,7 +20,7 @@ import {
 import { Cell } from '@ton/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { formatTokenAmount } from '../lib/amounts'
+import { formatTokenAmountFixed } from '../lib/amounts'
 import { TON_USDT_JETTON_MASTER } from '../lib/constants'
 import { decodeCheckoutPayload } from '../lib/checkoutPayload'
 
@@ -364,7 +364,7 @@ function PayPage() {
       </p>
       <h1 className="mt-3 text-3xl font-semibold tracking-normal">
         Pay{' '}
-        {formatTokenAmount(
+        {formatTokenAmountFixed(
           checkout.expectedReceiveRawAmount ?? checkout.expectedUsdtRawAmount,
           receiveAsset.decimals,
           receiveAsset.symbol,
@@ -384,7 +384,7 @@ function PayPage() {
             <li key={item.id} className="flex justify-between gap-4">
               <span>{item.name}</span>
               <span>
-                {formatTokenAmount(
+                {formatTokenAmountFixed(
                   item.priceRawAmount ?? String(item.priceCents * 10_000),
                   receiveAsset.decimals,
                   receiveAsset.symbol,
@@ -399,7 +399,7 @@ function PayPage() {
         <div className="flex justify-between gap-4">
           <span>Subtotal</span>
           <span>
-            {formatTokenAmount(
+            {formatTokenAmountFixed(
               checkout.items
                 .reduce(
                   (total, item) =>
@@ -418,7 +418,7 @@ function PayPage() {
         <div className="flex justify-between gap-4">
           <span>Tip</span>
           <span>
-            {formatTokenAmount(
+            {formatTokenAmountFixed(
               (
                 BigInt(
                   checkout.expectedReceiveRawAmount ??
@@ -441,7 +441,7 @@ function PayPage() {
         <div className="flex justify-between gap-4 border-t border-cyan-300/20 pt-2 text-base font-semibold">
           <span>Total</span>
           <span>
-            {formatTokenAmount(
+            {formatTokenAmountFixed(
               checkout.expectedReceiveRawAmount ?? checkout.expectedUsdtRawAmount,
               receiveAsset.decimals,
               receiveAsset.symbol,
@@ -515,7 +515,7 @@ function PayPage() {
           <div className="flex justify-between gap-4">
             <span>Merchant receives</span>
             <span>
-              {formatTokenAmount(
+              {formatTokenAmountFixed(
                 checkout.expectedReceiveRawAmount ??
                   checkout.expectedUsdtRawAmount,
                 receiveAsset.decimals,
