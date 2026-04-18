@@ -4,12 +4,19 @@
   <img src="public/icon-192.png" alt="TableTab icon" width="192" height="192" />
 </p>
 
-TableTab is a 4-day hackathon MVP for splitting and paying a restaurant table
-bill on TON. It uses a single tablet as the restaurant board and a phone-only
-checkout page for wallet payment.
+TableTab is a hackathon MVP for splitting and paying a restaurant bill on TON.
+It uses one tablet as the live table board, keeps bill state in localStorage,
+and lets customers pay with USDT directly or with another TON token through
+STON.fi Omniston.
 
-The app is themed for the STON.fi ecosystem and uses STON.fi Omniston so a guest
-can pay with a supported TON token while the merchant receives USDT.
+The merchant always receives USDT.
+
+## Current Release
+
+- Version: `v1.1.1`
+- Production branch: `main`
+- Stable anchor before the v1.1 payment-flow changes: `v1.0.0`
+- Production URL: `https://table-tab-pi.vercel.app`
 
 ## What It Does
 
@@ -17,43 +24,53 @@ The merchant opens the tablet board at `/`, enters a table or order name,
 merchant receiving wallet, and custom USDT-priced items, then locks the order.
 After locking, the same tablet becomes the customer-facing board.
 
-Customers use the tablet one at a time. A customer selects one or more unpaid
-items, adds an optional tip, then chooses either a fast direct USDT payment or a
-STON.fi Omniston payment with any supported token.
+Customers use the same tablet one at a time. A customer selects unpaid items,
+adds an optional USDT tip, then chooses one of two payment paths:
 
-For direct payment, the tablet shows a wallet QR that can be scanned inside
-Tonkeeper. For any-token payment, the tablet can connect to the customer's
-wallet with TonConnect, request an Omniston quote, build the swap/payment
-transfer, and send it through the connected wallet. The older `/pay` phone page
-remains as a fallback checkout. The tablet remains the source of truth and polls
-the merchant wallet to mark pending items paid when USDT arrives.
+- Fast Pay with USDT: the tablet creates a Tonkeeper QR for a direct USDT
+  transfer to the merchant wallet.
+- Pay with any token: the tablet connects to the customer's TON wallet with
+  TonConnect, requests a STON.fi Omniston quote, and builds a payment that swaps
+  the customer's selected token into merchant USDT.
 
-When all items are paid, the tablet shows a large Paid in Full banner.
+The `/pay` route remains available as a phone-only fallback checkout. It reads
+the encoded checkout payload from the URL, shows the selected items and total,
+connects a TON wallet, requests an Omniston quote, and sends the transaction.
+It does not directly edit the tablet board.
+
+The tablet board is the source of truth. While a checkout is pending, selected
+items are marked pending and the board polls TonAPI for incoming USDT to the
+merchant wallet. When payment is detected, pending items become paid. When all
+items are paid, the board shows a large Paid in Full banner.
 
 ## Demo Flow
 
-1. Merchant adds custom items with USDT prices.
+1. Merchant creates a bill with USDT item prices.
 2. Merchant enters the receiving wallet and locks the order.
 3. Customer selects unpaid items on the same tablet.
 4. Customer adds an optional tip.
 5. Customer chooses Fast Pay with USDT or Pay with any token.
-6. Fast Pay shows a Tonkeeper transfer QR for USDT.
+6. Fast Pay shows a Tonkeeper QR for direct USDT payment.
 7. Any-token pay uses tablet-side TonConnect plus STON.fi Omniston.
 8. `/pay?checkout=...` remains available as a fallback phone checkout.
-9. Tablet polls the merchant wallet, detects incoming USDT, and marks items paid.
+9. Tablet detects incoming USDT and marks items paid.
 10. When all items are paid, the board shows Paid in Full.
 
 ## Payment Rules
 
-- Bill totals are denominated in USDT.
+- Bill totals are denominated and displayed in USDT.
+- User-facing USDT amounts are formatted as `0.00 USDT`.
+- Raw jetton amounts are still used internally for quotes, transfers, and
+  payment detection.
 - Omniston is requested in exact-output mode using the checkout USDT amount.
 - Customer swap slippage is hardcoded to 1%.
-- The merchant-side detection accepts a small rounding tolerance to avoid
-  swap-dust mismatches during the demo.
+- Merchant-side detection accepts up to `0.01 USDT` of rounding difference to
+  avoid swap-dust failures during the demo.
 - Only one checkout can be active at a time.
+- Only unpaid items can be selected.
 - Selected items become pending while a checkout is active.
 - Pending items return to unpaid if the checkout is canceled or times out.
-- The phone checkout does not directly edit tablet state.
+- The phone checkout does not directly update tablet state.
 
 ## Constraints
 
@@ -64,6 +81,11 @@ When all items are paid, the tablet shows a large Paid in Full banner.
 - One active checkout at a time.
 - The tablet board is the source of truth for bill state.
 - Board state is stored in localStorage.
+
+## Routes
+
+- `/` is the tablet-facing board.
+- `/pay` is the phone-only fallback wallet checkout.
 
 ## Tech Stack
 
@@ -76,13 +98,30 @@ When all items are paid, the tablet shows a large Paid in Full banner.
 - STON.fi API
 - STON.fi Omniston SDK
 - TonAPI polling with a TonConsole API key
-- Tablet-side TON Connect payment
 - Vercel deployment
 
-## Routes
+## TonConnect Manifest
 
-- `/` is the tablet-facing board.
-- `/pay` is the phone-only wallet checkout.
+The app uses:
+
+```ts
+const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`
+```
+
+For production wallet testing, `public/tonconnect-manifest.json` should point to
+the public production domain:
+
+```json
+{
+  "url": "https://table-tab-pi.vercel.app",
+  "name": "TableTab",
+  "iconUrl": "https://table-tab-pi.vercel.app/icon-192.png"
+}
+```
+
+The manifest and icon must be publicly reachable without Vercel Authentication.
+If a preview deployment is protected, Tonkeeper cannot fetch the manifest and
+may show an invalid manifest error.
 
 ## Environment Variables
 
@@ -135,6 +174,7 @@ npm run lint
 - Reset clears the local board state.
 - Cancel pending payment returns pending items to unpaid.
 - Simulate Payment exists only in development mode.
+- Clear paid table / New table appears after the order is paid in full.
 
 ## Current Notes
 
