@@ -265,13 +265,7 @@ function BoardPage() {
     bill.items.length > 0 &&
     unpaidItems.length === 0 &&
     pendingItems.length === 0
-  const stageLabel = !bill.isLocked
-    ? '1. Merchant setup'
-    : isPaidInFull
-      ? '4. Paid in full'
-      : activeCheckout
-        ? '3. Pending payment'
-        : '2. Locked customer board'
+  const setupStageLabel = '1. Merchant setup'
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(boardState))
@@ -784,7 +778,7 @@ function BoardPage() {
       <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
         <div className="ston-panel p-6">
           <p className="ston-kicker inline-flex px-3 py-1 text-sm font-bold uppercase">
-            {stageLabel}
+            {setupStageLabel}
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-normal">
             Create Bill
@@ -928,10 +922,7 @@ function BoardPage() {
           </div>
         ) : null}
 
-        <p className="ston-kicker inline-flex px-3 py-1 text-sm font-bold uppercase">
-          {stageLabel}
-        </p>
-        <h1 className="mt-4 text-5xl font-semibold tracking-normal">
+        <h1 className="text-5xl font-semibold tracking-normal">
           {bill.orderName}
         </h1>
         <h2 className="mt-3 text-2xl font-semibold tracking-normal">
@@ -1058,20 +1049,18 @@ function BoardPage() {
       </div>
 
       <aside className="ston-panel p-6">
-        <h2 className="text-2xl font-semibold tracking-normal">Demo flow</h2>
-        <p className="ston-text-muted mt-2 text-sm">{bill.orderName}</p>
-
+        <h2 className="text-2xl font-semibold tracking-normal">How to pay</h2>
         <ol className="mt-5 grid gap-3 text-lg font-semibold">
           <li className="ston-card-muted p-4">1. Select your items</li>
-          <li className="ston-card-muted p-4">2. Tap Pay</li>
+          <li className="ston-card-muted p-4">2. Add a tip if you want</li>
           <li className="ston-card-muted p-4">
-            3. Scan QR with your phone camera
+            3. Choose Fast Pay with USDT or Pay with any token
           </li>
           <li className="ston-card-muted p-4">
-            4. Connect Tonkeeper on your phone
+            4. Fast Pay: scan the QR inside Tonkeeper
           </li>
           <li className="ston-card-muted p-4">
-            5. Choose a token and approve
+            5. Any token: connect Tonkeeper and approve the STON.fi swap
           </li>
         </ol>
 
@@ -1227,17 +1216,6 @@ function BoardPage() {
                 ) : null}
               </div>
             ) : null}
-            <p className="ston-text-muted text-sm">
-              Selected items are pending while the tablet polls TonAPI every
-              second for incoming USDT to the merchant wallet.
-            </p>
-            <p className="ston-text-muted text-sm">
-              Merchant accepts a tiny rounding difference to avoid swap dust
-              blocking the demo.
-            </p>
-            <p className="ston-text-muted text-sm">
-              This checkout times out after 2 minutes.
-            </p>
             <input
               className="ston-input px-3 py-3 text-sm"
               readOnly
