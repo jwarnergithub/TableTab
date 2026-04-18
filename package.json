@@ -1,6 +1,7 @@
 {
   "name": "tabletab",
   "private": true,
+  "description": "Tablet-first TON restaurant bill splitting demo with USDT settlement and STON.fi Omniston payments.",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

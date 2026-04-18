@@ -87,6 +87,34 @@ items are paid, the board shows a large Paid in Full banner.
 - `/` is the tablet-facing board.
 - `/pay` is the phone-only fallback wallet checkout.
 
+## Project Structure
+
+- `public/icon-192.png`: TableTab app icon used by the page and README.
+- `public/tonconnect-manifest.json`: TonConnect wallet manifest for the public
+  production deployment.
+- `src/main.tsx`: React entry point, providers, router setup, and TonConnect
+  manifest URL wiring.
+- `src/App.tsx`: Top-level app shell, layout, routes, and error boundary.
+- `src/index.css`: Tailwind and custom STON.fi-themed visual styling.
+- `src/pages/BoardPage.tsx`: Main tablet board for merchant setup, item
+  selection, checkout creation, QR display, payment polling, and paid-in-full
+  state.
+- `src/pages/PayPage.tsx`: Phone fallback checkout that reads the encoded
+  checkout payload and sends an Omniston/TonConnect payment.
+- `src/lib/amounts.ts`: USDT/raw amount parsing, addition, and display
+  formatting helpers.
+- `src/lib/checkoutPayload.ts`: Checkout payload encoding/decoding and direct
+  USDT Tonkeeper transfer-link helpers.
+- `src/lib/constants.ts`: Shared TON, USDT, TonAPI, and fallback asset
+  constants.
+- `src/lib/omnistonPayment.ts`: Shared helpers for Omniston quotes, trade
+  status labels, and TonConnect transaction mapping.
+- `src/lib/paymentPolling.ts`: TonAPI/TON Center polling helpers for detecting
+  incoming merchant USDT payments.
+- `src/types/billing.ts`: Board, bill item, checkout, and asset TypeScript
+  types.
+- `vite.config.ts`: Vite, React, Tailwind, and node polyfill configuration.
+
 ## Tech Stack
 
 - React
