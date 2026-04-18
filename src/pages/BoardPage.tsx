@@ -397,7 +397,11 @@ function BoardPage() {
                 ...currentState.usedPaymentTxHashes,
                 payment.hash,
               ],
-              lastPaymentMessage: `Payment detected. Received ${payment.amount} raw ${activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol}. Transaction ${shortHash(payment.hash)}`,
+              lastPaymentMessage: `Payment detected. Received ${formatTokenAmountFixed(
+                payment.amount,
+                activeCheckout.receiveAsset?.decimals ?? receiveAsset.decimals,
+                activeCheckout.receiveAsset?.symbol ?? receiveAsset.symbol,
+              )}. Transaction ${shortHash(payment.hash)}`,
             }
           })
         }
