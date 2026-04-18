@@ -790,7 +790,7 @@ function BoardPage() {
             Create Bill
           </h1>
           <p className="ston-text-muted mt-3 max-w-2xl text-lg">
-            Add the items for this table, enter the merchant wallet, then lock
+            Add the items for this order, enter the merchant wallet, then lock
             the order before handing the tablet to customers.
           </p>
 
