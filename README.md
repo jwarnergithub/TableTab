@@ -132,7 +132,7 @@ npm run lint
 
 ## Demo Safety Controls
 
-- Reset Demo clears the local board state.
+- Reset clears the local board state.
 - Cancel pending payment returns pending items to unpaid.
 - Simulate Payment exists only in development mode.
 

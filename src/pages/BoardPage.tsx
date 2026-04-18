@@ -787,7 +787,7 @@ function BoardPage() {
             {stageLabel}
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-normal">
-            Build the table bill
+            Create Bill
           </h1>
           <p className="ston-text-muted mt-3 max-w-2xl text-lg">
             Add the items for this table, enter the merchant wallet, then lock
@@ -900,7 +900,7 @@ function BoardPage() {
             className="ston-button-secondary mt-3 w-full px-5 py-4 text-lg font-semibold"
             onClick={resetDemo}
           >
-            Reset Demo
+            Reset
           </button>
           <p className="ston-text-muted mt-5 text-base">
             After locking, this same tablet becomes the customer board. No
@@ -1305,7 +1305,7 @@ function BoardPage() {
           className="ston-button-secondary mt-6 w-full px-5 py-4 text-lg font-semibold"
           onClick={resetDemo}
         >
-          Reset Demo
+          Reset
         </button>
       </aside>
     </section>

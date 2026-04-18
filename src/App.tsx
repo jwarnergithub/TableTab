@@ -34,7 +34,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             TableTab hit a page error.
           </h1>
           <p className="mt-3 text-sm">
-            Try Reset Demo on the tablet page, or refresh and scan a fresh QR.
+            Try Reset on the tablet page, or refresh and scan a fresh QR.
           </p>
           <pre className="ston-card-muted mt-4 overflow-auto p-3 text-xs">
             {this.state.error.message}
